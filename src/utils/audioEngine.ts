@@ -105,6 +105,8 @@ export class GaplessTamilAudioEngine {
   private currentSource: AudioBufferSourceNode | null = null;
   private htmlAudio: HTMLAudioElement | null = null;
   private gainNode: GainNode | null = null;
+  private keepAliveOsc: OscillatorNode | null = null;
+  private keepAliveGain: GainNode | null = null;
   private isPlaying = false;
   private isPaused = false;
   private queue: { id: number; text: string; reference?: string }[] = [];
@@ -138,7 +140,7 @@ export class GaplessTamilAudioEngine {
     }
   }
 
-  private initAudioContext(): AudioContext {
+  private async ensureAudioContextRunning(): Promise<AudioContext> {
     if (!this.audioCtx) {
       const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.audioCtx = new AudioCtxClass();
@@ -146,32 +148,62 @@ export class GaplessTamilAudioEngine {
       this.gainNode.gain.value = this.settings.volume;
       this.gainNode.connect(this.audioCtx.destination);
     }
+
     if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
+      try {
+        await this.audioCtx.resume();
+      } catch (err) {
+        console.warn('AudioContext resume error:', err);
+      }
     }
-    // Silent oscillator to guarantee iOS Web Audio context is fully unblocked
-    try {
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-      gain.gain.value = 0.001;
-      osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
-      osc.start(0);
-      osc.stop(0.01);
-    } catch {}
+
+    this.startKeepAlive();
     return this.audioCtx;
+  }
+
+  private startKeepAlive(): void {
+    if (!this.audioCtx) return;
+    if (this.keepAliveOsc) return; // Already running
+
+    try {
+      this.keepAliveOsc = this.audioCtx.createOscillator();
+      this.keepAliveGain = this.audioCtx.createGain();
+      // Ultra low silent gain so context stays active on iOS Safari without producing audible sound
+      this.keepAliveGain.gain.value = 0.00001;
+      this.keepAliveOsc.connect(this.keepAliveGain);
+      this.keepAliveGain.connect(this.audioCtx.destination);
+      this.keepAliveOsc.start();
+    } catch (e) {
+      console.warn('Keep-alive oscillator start failed:', e);
+    }
+  }
+
+  private stopKeepAlive(): void {
+    if (this.keepAliveOsc) {
+      try {
+        this.keepAliveOsc.stop();
+        this.keepAliveOsc.disconnect();
+      } catch {}
+      this.keepAliveOsc = null;
+    }
+    if (this.keepAliveGain) {
+      try {
+        this.keepAliveGain.disconnect();
+      } catch {}
+      this.keepAliveGain = null;
+    }
   }
 
   public unlock(): void {
     try {
       // 1. Warm up and unlock Web Audio AudioContext
-      this.initAudioContext();
+      this.ensureAudioContextRunning();
     } catch (err) {
       console.warn('AudioContext unlock failed:', err);
     }
 
     try {
-      // 2. Warm up and unlock HTML5 Audio
+      // 2. Warm up and unlock HTML5 Audio for iOS
       if (!this.htmlAudio && typeof window !== 'undefined') {
         this.htmlAudio = new Audio();
         this.htmlAudio.setAttribute('playsinline', 'true');
@@ -183,7 +215,7 @@ export class GaplessTamilAudioEngine {
         this.htmlAudio.play().then(() => {
           console.log('HTML5 Audio successfully unlocked on iOS');
         }).catch(err => {
-          console.log('HTML5 Audio unlock started (harmless on desktops):', err);
+          console.log('HTML5 Audio unlock started:', err);
         });
       }
     } catch (err) {
@@ -236,9 +268,36 @@ export class GaplessTamilAudioEngine {
     this.listeners.forEach(l => l.onItemEnd?.(itemId));
   };
 
+  private setupMediaSession(itemId: number, text: string) {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return;
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: `ஸ்தோத்திரம் #${itemId}`,
+        artist: text.slice(0, 60),
+        album: '1000 தமிழ் ஸ்தோத்திர துதிகள்',
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        this.resume();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        this.pause();
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        this.prev();
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        this.next();
+      });
+    } catch (e) {
+      console.warn('MediaSession setup failed:', e);
+    }
+  }
+
   public async playSingleText(itemId: number, rawText: string, ref?: string): Promise<void> {
     this.stop();
-    this.initAudioContext();
+    await this.ensureAudioContextRunning();
     this.isPlaying = true;
     this.isPaused = false;
     this.onStatusChange?.('loading', `ஸ்தோத்திரம் #${itemId} ஒலி தயாரிப்பு...`);
@@ -257,7 +316,7 @@ export class GaplessTamilAudioEngine {
         }
       }
     } catch (err) {
-      console.warn('Backend TTS failed, trying HTML5 Audio fallback:', err);
+      console.warn('TTS playback failed, trying HTML5 Audio fallback:', err);
       try {
         await this.playViaHtmlAudio(itemId, rawText, formattedSpeech);
       } catch {
@@ -268,7 +327,7 @@ export class GaplessTamilAudioEngine {
 
   public async playQueue(items: { id: number; text: string; reference?: string }[], startIndex = 0): Promise<void> {
     this.stop();
-    this.initAudioContext();
+    await this.ensureAudioContextRunning();
     this.queue = items;
     this.currentItemIndex = startIndex;
     this.isPlaying = true;
@@ -302,58 +361,26 @@ export class GaplessTamilAudioEngine {
   private applyPhoneticCorrections(text: string): string {
     if (!text) return '';
     let result = text;
-    // 1. "இயே" -> "யே" (e.g. "இயேசு" -> "யேசு", "இயேசுவே" -> "யேசுவே", "இயேசுவின்" -> "யேசுவின்")
+    // Phonetic corrections for natural Tamil pronunciation
     result = result.replace(/இயே/g, 'யே');
-
-    // 2. "இரா" -> "ரா" (e.g. "இராஜா" -> "ராஜா", "இராச்சியம்" -> "ராச்சியம்", "இராகம்" -> "ராகம்")
     result = result.replace(/இரா/g, 'ரா');
-
-    // 3. "இரட்ச" -> "ரட்ச" (e.g. "இரட்சகர்" -> "ரட்சகர்", "இரட்சிப்பு" -> "ரட்சிப்பு", "இரட்சண்ய" -> "ரட்சண்ய", "இரட்சிக்க" -> "ரட்சிக்க", "இரட்சிப்பை" -> "ரட்சிப்பை")
     result = result.replace(/இரட்ச/g, 'ரட்ச');
-
-    // 4. "இலட்ச" -> "லட்ச" (e.g. "இலட்சம்" -> "லட்சம்", "இலட்சங்கள்" -> "லட்சங்கள்")
     result = result.replace(/இலட்ச/g, 'லட்ச');
-
-    // 5. "இலா" -> "லா" (e.g. "இலாபம்" -> "லாபம்")
     result = result.replace(/இலா/g, 'லா');
-
-    // 6. "இரக்க" -> "ரக்க" (e.g. "இரக்கம்" -> "ரக்கம்", "இரக்கங்கள்" -> "ரக்கங்கள்", "இரக்கமுள்ளவர்" -> "ரக்கமுள்ளவர்", "இரக்கத்தாலும்" -> "ரக்கத்தாலும்")
     result = result.replace(/இரக்க/g, 'ரக்க');
-
-    // 7. "இரங்கு" -> "ரங்கு" (e.g. "இரங்குகிறார்" -> "ரங்குகிறார்", "இரங்குவீர்" -> "ரங்குவீர்")
     result = result.replace(/இரங்கு/g, 'ரங்கு');
-
-    // 8. "இரண்டு" -> "ரண்டு" / "இரண்டா" -> "ரண்டா" (e.g. "இரண்டு" -> "ரண்டு", "இரண்டாவது" -> "ரண்டாவது")
     result = result.replace(/இரண்டு/g, 'ரண்டு');
     result = result.replace(/இரண்டா/g, 'ரண்டா');
-
-    // 9. "இரட்டி" -> "ரட்டி" / "இரட்ட" -> "ரட்ட" (e.g. "இரட்டிப்பான" -> "ரட்டிப்பான", "இரட்டத்தனையாக" -> "ரட்டத்தனையாக")
     result = result.replace(/இரட்டி/g, 'ரட்டி');
     result = result.replace(/இரட்ட/g, 'ரட்ட');
-
-    // 10. "இரத்த" -> "ரத்த" (e.g. "இரத்தம்" -> "ரத்தம்", "இரttத்தாலே" -> "ரத்தத்தாலே")
     result = result.replace(/இரttத்தாலே/g, 'ரத்தத்தாலே');
     result = result.replace(/இரத்த/g, 'ரத்த');
-
-    // 11. "இரகசி" -> "ரகசி" (e.g. "இரகசியத்தை" -> "ரகசியத்தை")
     result = result.replace(/இரகசி/g, 'ரகசி');
-
-    // 12. "இரதம" -> "ரதம" (e.g. "இரதமாக்கி" -> "இரதமாக்கி")
     result = result.replace(/இரதம/g, 'ரதம');
-
-    // 13. "உரோம" -> "ரோம" (e.g. "உரோமர்" -> "ரோமர்", "உரோமர்கள்" -> "ரோமர்கள்")
     result = result.replace(/உரோம/g, 'ரோம');
-
-    // 14. "உলোகம்" -> "லோகம்" (e.g. "உலோகங்கள்" -> "லோகங்கள்")
-    result = result.replace(/உলোகம்/g, 'லோகம்');
-
-    // 15. "எருச" -> "யெருச" (e.g. "எருசலேம்" -> "யெருசலேம்", "எருசலேமின்" -> "யெருசலேமின்")
+    result = result.replace(/உலோகம்/g, 'லோகங்கள்');
     result = result.replace(/எருச/g, 'யெருச');
-
-    // 16. "ஐசுவரிய" -> "ஐஸ்வரிய" (e.g. "ஐசுவரியம்" -> "ஐஸ்வரியம்", "ஐசுவரியவானாக" -> "ஐஸ்வரியவானாக")
     result = result.replace(/ஐசுவரிய/g, 'ஐஸ்வரிய');
-
-    // 17. "ஒமெகா" -> "ஒமேகா" (e.g. "ஒமெகாவுமானவரே" -> "ஒமேகாவுமானவரே")
     result = result.replace(/ஒமெகா/g, 'ஒமேகா');
 
     return result;
@@ -362,6 +389,7 @@ export class GaplessTamilAudioEngine {
   private async processNextInQueue(): Promise<void> {
     if (!this.isPlaying || this.currentItemIndex >= this.queue.length) {
       this.isPlaying = false;
+      this.stopKeepAlive();
       this.onStatusChange?.('idle', 'வாசிப்பு நிறைவுற்றது');
       return;
     }
@@ -371,10 +399,13 @@ export class GaplessTamilAudioEngine {
 
     this.onStatusChange?.('loading', `தயாராகிறது (${this.currentItemIndex + 1}/${this.queue.length}): #${current.id}...`);
 
+    // Prefetch upcoming items
     this.prefetchAhead(this.currentItemIndex + 1);
 
     try {
       let buffer = this.prefetchMap.get(current.id);
+      this.prefetchMap.delete(current.id); // Clean up used buffer
+
       if (!buffer && !this.settings.useBrowserFallback) {
         buffer = await this.synthesizeAndDecode(fullSpeech);
       }
@@ -387,9 +418,9 @@ export class GaplessTamilAudioEngine {
         await this.speakWithWebSpeech(current.id, fullSpeech);
       }
 
-      // Add 400ms natural pause between queue items
+      // Add 300ms natural pause between queue items
       if (this.isPlaying) {
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 300));
       }
 
       if (this.isPlaying && this.settings.continuousPlay) {
@@ -397,8 +428,7 @@ export class GaplessTamilAudioEngine {
         await this.processNextInQueue();
       }
     } catch (err) {
-      console.warn('Queue playback item failed, fallback to WebSpeech', err);
-      await this.speakWithWebSpeech(current.id, fullSpeech);
+      console.warn('Queue playback item failed, attempting next verse:', err);
       if (this.isPlaying && this.settings.continuousPlay) {
         this.currentItemIndex++;
         await this.processNextInQueue();
@@ -441,7 +471,7 @@ export class GaplessTamilAudioEngine {
       const data = await res.json();
       if (!data.audioContent) return null;
 
-      const ctx = this.initAudioContext();
+      const ctx = await this.ensureAudioContextRunning();
       const binaryStr = atob(data.audioContent);
       const len = binaryStr.length;
       const bytes = new Uint8Array(len);
@@ -449,9 +479,19 @@ export class GaplessTamilAudioEngine {
         bytes[i] = binaryStr.charCodeAt(i);
       }
 
-      return await ctx.decodeAudioData(bytes.buffer);
+      // Safe decodeAudioData promise with callback fallback for older Safari
+      return await new Promise<AudioBuffer>((resolve, reject) => {
+        const promise = ctx.decodeAudioData(
+          bytes.buffer,
+          (decoded) => resolve(decoded),
+          (err) => reject(err)
+        );
+        if (promise && typeof promise.then === 'function') {
+          promise.then(resolve).catch(reject);
+        }
+      });
     } catch (err) {
-      console.warn('Synthesize decode error (using direct fallback):', err);
+      console.warn('Synthesize decode error:', err);
       this.useDirectGoogleTtsFallback = true;
       return null;
     }
@@ -467,41 +507,44 @@ export class GaplessTamilAudioEngine {
       return this.playDirectGoogleTtsChunks(itemId, originalText, speechText);
     }
 
-    return new Promise((resolve, reject) => {
-      this.stopCurrentMedia();
+    return new Promise((resolve) => {
+      this.stopCurrentMediaSourceOnly();
       const audioUrl = `/api/tts?q=${encodeURIComponent(speechText)}`;
       
-      if (!this.htmlAudio) {
+      if (!this.htmlAudio && typeof window !== 'undefined') {
         this.htmlAudio = new Audio();
         this.htmlAudio.setAttribute('playsinline', 'true');
         this.htmlAudio.setAttribute('webkit-playsinline', 'true');
       }
-      const audio = this.htmlAudio;
-      audio.onended = null;
-      audio.onerror = null;
+      const audio = this.htmlAudio!;
+
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        audio.onended = null;
+        audio.onerror = null;
+        this.onItemEnd?.(itemId);
+        resolve();
+      };
 
       audio.src = audioUrl;
       audio.playbackRate = this.settings.speed;
       audio.volume = this.settings.volume;
 
+      audio.onended = done;
+      audio.onerror = () => {
+        console.warn('Backend TTS /api/tts HTMLAudio error.');
+        done();
+      };
+
       this.onItemStart?.(itemId, originalText);
       this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
+      this.setupMediaSession(itemId, originalText);
 
-      audio.onended = () => {
-        this.onItemEnd?.(itemId);
-        resolve();
-      };
-
-      audio.onerror = (_e) => {
-        console.warn('Backend TTS /api/tts failed, switching to direct Google TTS fallback.');
-        this.useDirectGoogleTtsFallback = true;
-        this.playDirectGoogleTtsChunks(itemId, originalText, speechText).then(resolve).catch(reject);
-      };
-
-      audio.play().catch(err => {
-        console.warn('Backend play failed, switching to direct Google TTS fallback:', err);
-        this.useDirectGoogleTtsFallback = true;
-        this.playDirectGoogleTtsChunks(itemId, originalText, speechText).then(resolve).catch(reject);
+      audio.play().then(() => {}).catch(err => {
+        console.warn('Backend HTMLAudio play rejected:', err);
+        done();
       });
     });
   }
@@ -512,76 +555,90 @@ export class GaplessTamilAudioEngine {
 
     this.onItemStart?.(itemId, originalText);
     this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
+    this.setupMediaSession(itemId, originalText);
 
     for (let i = 0; i < cleanChunks.length; i++) {
       if (!this.isPlaying || this.isPaused) break;
 
       const chunk = cleanChunks[i];
-      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ta&client=tw-ob&q=${encodeURIComponent(chunk.slice(0, 180))}`;
+      const audioUrl = `/api/tts?q=${encodeURIComponent(chunk.slice(0, 180))}`;
       
-      await new Promise<void>((resolve, reject) => {
-        this.stopCurrentMedia();
-        if (!this.htmlAudio) {
+      await new Promise<void>((resolve) => {
+        this.stopCurrentMediaSourceOnly();
+        if (!this.htmlAudio && typeof window !== 'undefined') {
           this.htmlAudio = new Audio();
           this.htmlAudio.setAttribute('playsinline', 'true');
           this.htmlAudio.setAttribute('webkit-playsinline', 'true');
         }
-        const audio = this.htmlAudio;
-        audio.onended = null;
-        audio.onerror = null;
+        const audio = this.htmlAudio!;
+
+        let finished = false;
+        const done = () => {
+          if (finished) return;
+          finished = true;
+          audio.onended = null;
+          audio.onerror = null;
+          resolve();
+        };
 
         audio.src = audioUrl;
         audio.playbackRate = this.settings.speed;
         audio.volume = this.settings.volume;
 
-        audio.onended = () => {
-          resolve();
-        };
+        audio.onended = done;
+        audio.onerror = done;
 
-        audio.onerror = (e) => {
-          reject(e);
-        };
-
-        audio.play().catch(err => {
-          reject(err);
-        });
+        audio.play().catch(() => done());
       });
     }
 
     this.onItemEnd?.(itemId);
   }
 
-  private playAudioBuffer(itemId: number, text: string, buffer: AudioBuffer): Promise<void> {
+  private async playAudioBuffer(itemId: number, text: string, buffer: AudioBuffer): Promise<void> {
+    const ctx = await this.ensureAudioContextRunning();
+
     return new Promise((resolve) => {
-      this.stopCurrentMedia();
-      const ctx = this.initAudioContext();
+      this.stopCurrentMediaSourceOnly();
+
       this.currentSource = ctx.createBufferSource();
       this.currentSource.buffer = buffer;
       this.currentSource.playbackRate.value = this.settings.speed;
 
-      // Real-time pitch-shifting detune based on the user's selected voice!
+      // Pitch shifting
       if (this.currentSource.detune) {
         if (this.settings.voice === 'ta-IN-Wavenet-B') {
-          this.currentSource.detune.value = -500; // Deeper male voice
+          this.currentSource.detune.value = -500;
         } else if (this.settings.voice === 'ta-IN-Neural2-A') {
-          this.currentSource.detune.value = 150;  // Brighter, sweeter neural voice
+          this.currentSource.detune.value = 150;
         } else if (this.settings.voice === 'ta-IN-Standard-A') {
-          this.currentSource.detune.value = -150; // Deeper standard voice
+          this.currentSource.detune.value = -150;
         } else {
-          this.currentSource.detune.value = 50;   // Default clean female voice
+          this.currentSource.detune.value = 50;
         }
       }
 
       this.currentSource.connect(this.gainNode!);
       this.onItemStart?.(itemId, text);
       this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
+      this.setupMediaSession(itemId, text);
 
-      this.currentSource.onended = () => {
+      let finished = false;
+      const handleEnded = () => {
+        if (finished) return;
+        finished = true;
         this.onItemEnd?.(itemId);
         resolve();
       };
 
-      this.currentSource.start();
+      this.currentSource.onended = handleEnded;
+
+      try {
+        this.currentSource.start();
+      } catch (err) {
+        console.error('AudioBufferSourceNode start failed:', err);
+        handleEnded();
+      }
     });
   }
 
@@ -599,23 +656,22 @@ export class GaplessTamilAudioEngine {
       utterance.rate = this.settings.speed;
       utterance.volume = this.settings.volume;
 
-      // Select voice and pitch based on settings dynamically
       const voices = window.speechSynthesis.getVoices();
       const tamilVoices = voices.filter(v => v.lang.includes('ta') || v.name.toLowerCase().includes('tamil'));
       
       let selectedVoice = null;
       if (this.settings.voice.includes('Wavenet-B') || this.settings.voice.includes('male')) {
         selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('ஆண்') || v.name.toLowerCase().includes('rishi'));
-        utterance.pitch = 0.75; // Low pitch for male voice
+        utterance.pitch = 0.75;
       } else if (this.settings.voice.includes('Neural2-A')) {
         selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('lekha'));
-        utterance.pitch = 1.2;  // High/sweet pitch for neural voice
+        utterance.pitch = 1.2;
       } else if (this.settings.voice.includes('Standard-A')) {
         selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('standard') || v.name.toLowerCase().includes('hema'));
-        utterance.pitch = 0.9;  // Slightly lower standard pitch
+        utterance.pitch = 0.9;
       } else {
         selectedVoice = tamilVoices.find(v => !v.name.toLowerCase().includes('male') && !v.name.toLowerCase().includes('ஆண்'));
-        utterance.pitch = 1.05; // Standard female pitch
+        utterance.pitch = 1.05;
       }
 
       if (!selectedVoice && tamilVoices.length > 0) {
@@ -625,22 +681,27 @@ export class GaplessTamilAudioEngine {
       if (selectedVoice) {
         utterance.voice = selectedVoice;
       } else {
-        // Fallback to standard pitch config
         utterance.pitch = this.settings.voice.includes('Wavenet-B') ? 0.75 : 1.05;
       }
 
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeoutId);
+        this.onItemEnd?.(itemId);
+        resolve();
+      };
+
+      // 18s safety fallback timeout so iOS WebSpeech never hangs the queue if onend is silent
+      const timeoutId = setTimeout(done, 18000);
+
+      utterance.onend = done;
+      utterance.onerror = done;
+
       this.onItemStart?.(itemId, text);
       this.onStatusChange?.('playing', `உலாவி குரல்: #${itemId}`);
-
-      utterance.onend = () => {
-        this.onItemEnd?.(itemId);
-        resolve();
-      };
-
-      utterance.onerror = () => {
-        this.onItemEnd?.(itemId);
-        resolve();
-      };
+      this.setupMediaSession(itemId, text);
 
       window.speechSynthesis.speak(utterance);
     });
@@ -682,7 +743,7 @@ export class GaplessTamilAudioEngine {
     }
   }
 
-  private stopCurrentMedia(): void {
+  private stopCurrentMediaSourceOnly(): void {
     if (this.currentSource) {
       try {
         this.currentSource.stop();
@@ -693,7 +754,6 @@ export class GaplessTamilAudioEngine {
     if (this.htmlAudio) {
       try {
         this.htmlAudio.pause();
-        // Keep htmlAudio reference intact for iOS user gesture reuse, just clear callbacks & src if needed
         this.htmlAudio.onended = null;
         this.htmlAudio.onerror = null;
       } catch {}
@@ -701,6 +761,11 @@ export class GaplessTamilAudioEngine {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+  }
+
+  private stopCurrentMedia(): void {
+    this.stopCurrentMediaSourceOnly();
+    this.stopKeepAlive();
   }
 
   public stop(): void {
@@ -712,7 +777,7 @@ export class GaplessTamilAudioEngine {
 
   public next(): void {
     if (this.queue.length > 0 && this.currentItemIndex < this.queue.length - 1) {
-      this.stopCurrentMedia();
+      this.stopCurrentMediaSourceOnly();
       this.currentItemIndex++;
       this.processNextInQueue();
     }
@@ -720,7 +785,7 @@ export class GaplessTamilAudioEngine {
 
   public prev(): void {
     if (this.queue.length > 0 && this.currentItemIndex > 0) {
-      this.stopCurrentMedia();
+      this.stopCurrentMediaSourceOnly();
       this.currentItemIndex--;
       this.processNextInQueue();
     }
