@@ -1,0 +1,6 @@
+{
+  "name": "Tamil Audiobook & Text Reader",
+  "description": "அகர வரிசையில் நன்றி பலிகள் 1000 - Premium Tamil Devotional Audiobook Player and Reader",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
