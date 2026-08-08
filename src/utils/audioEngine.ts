@@ -106,7 +106,10 @@ export class GaplessTamilAudioEngine {
   private isPaused = false;
   private queue: { id: number; text: string; reference?: string }[] = [];
   private currentItemIndex = 0;
-  private useDirectGoogleTts = false;
+  private isBackendTtsAvailable = true;
+  private mp3UrlCache = new Map<number, string[]>();
+  private verseStartTime = 0;
+  
   private settings: PlayerSettings = {
     voice: 'ta-IN-Wavenet-A',
     speed: 1.0,
@@ -144,18 +147,26 @@ export class GaplessTamilAudioEngine {
 
   public unlock(): void {
     try {
+      // 1. Unlock HTML5 Audio on iOS gesture
       const audio = this.getOrCreateHtmlAudio();
-      if (audio.paused && (!audio.src || audio.src === '')) {
-        // Silent WAV data URI to unlock audio on iOS user gesture
-        audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-        audio.play().then(() => {
-          console.log('HTML5 Audio successfully unlocked on iOS');
-        }).catch(err => {
-          console.log('HTML5 Audio unlock attempt:', err);
-        });
-      }
+      audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+      audio.play().then(() => {
+        console.log('HTML5 Audio gesture unlocked on iOS');
+      }).catch(() => {});
     } catch (err) {
       console.warn('HTMLAudio unlock error:', err);
+    }
+
+    try {
+      // 2. Unlock WebSpeech API on iOS gesture
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const silentUtterance = new SpeechSynthesisUtterance('');
+        silentUtterance.volume = 0;
+        window.speechSynthesis.speak(silentUtterance);
+      }
+    } catch (err) {
+      console.warn('WebSpeech unlock error:', err);
     }
   }
 
@@ -284,7 +295,7 @@ export class GaplessTamilAudioEngine {
     this.playCurrentQueueItem();
   }
 
-  private playCurrentQueueItem(): void {
+  private async playCurrentQueueItem(): Promise<void> {
     if (!this.isPlaying || this.currentItemIndex >= this.queue.length) {
       this.isPlaying = false;
       this.onStatusChange?.('idle', 'வாசிப்பு நிறைவுற்றது');
@@ -293,13 +304,34 @@ export class GaplessTamilAudioEngine {
 
     const current = this.queue[this.currentItemIndex];
     const speechText = this.formatFullSpeechText(current.id, current.text, current.reference);
+    this.verseStartTime = Date.now();
 
     if (this.settings.useBrowserFallback) {
       this.speakWithWebSpeech(current.id, speechText);
       return;
     }
 
-    // Detect if we are hosted on a static server like GitHub Pages where /api/tts is not available
+    // Prefetch next 2 items in queue asynchronously
+    this.prefetchNextItems(this.currentItemIndex + 1);
+
+    // Get MP3 audio URLs for current item
+    const mp3Urls = await this.getAudioUrlsForVerse(current.id, speechText);
+
+    if (mp3Urls && mp3Urls.length > 0) {
+      this.playMp3UrlsForQueueItem(current.id, current.text, mp3Urls, 0);
+    } else {
+      // Fallback to Web Speech API
+      this.speakWithWebSpeech(current.id, speechText);
+    }
+  }
+
+  private async getAudioUrlsForVerse(itemId: number, speechText: string): Promise<string[]> {
+    // 1. Check cache
+    if (this.mp3UrlCache.has(itemId)) {
+      return this.mp3UrlCache.get(itemId)!;
+    }
+
+    // 2. Detect if hosted on GitHub Pages / Static Hosting (no Express backend)
     const isStaticDeploy = typeof window !== 'undefined' && (
       window.location.hostname.includes('github.io') ||
       window.location.hostname.includes('github.preview') ||
@@ -307,48 +339,91 @@ export class GaplessTamilAudioEngine {
       window.location.protocol === 'file:'
     );
 
-    const useDirect = this.useDirectGoogleTts || isStaticDeploy;
-
-    let chunks: string[] = [];
-    if (useDirect) {
-      if (speechText.length <= 180) {
-        chunks = [speechText];
-      } else {
-        const rawChunks = speechText.match(/[^.!?\n,;:]+[.!?\n,;:]?/g) || [speechText];
-        let currentBlock = '';
-        for (const c of rawChunks) {
-          if ((currentBlock + c).length <= 180) {
-            currentBlock += c;
-          } else {
-            if (currentBlock.trim()) chunks.push(currentBlock.trim());
-            currentBlock = c;
-          }
-        }
-        if (currentBlock.trim()) chunks.push(currentBlock.trim());
-      }
-    } else {
-      chunks = [speechText];
+    if (this.isBackendTtsAvailable && !isStaticDeploy) {
+      // Try local Express /api/tts endpoint
+      const url = `/api/tts?q=${encodeURIComponent(speechText)}`;
+      this.mp3UrlCache.set(itemId, [url]);
+      return [url];
     }
 
-    this.playChunksForQueueItem(current.id, current.text, chunks, 0, useDirect);
+    // 3. Static Hosting (GitHub Pages): Use SoundOfText API which works seamlessly on iOS Safari
+    try {
+      const urls = await this.fetchSoundOfTextUrls(speechText);
+      if (urls.length > 0) {
+        this.mp3UrlCache.set(itemId, urls);
+        return urls;
+      }
+    } catch (err) {
+      console.warn('SoundOfText fetch error:', err);
+    }
+
+    return [];
   }
 
-  private playChunksForQueueItem(
+  private async fetchSoundOfTextUrls(fullText: string): Promise<string[]> {
+    // SoundOfText accepts max 200 chars per text block
+    let chunks: string[] = [];
+    if (fullText.length <= 180) {
+      chunks = [fullText];
+    } else {
+      const parts = fullText.match(/[^.!?\n,;:]+[.!?\n,;:]?/g) || [fullText];
+      let buf = '';
+      for (const p of parts) {
+        if ((buf + p).length <= 180) {
+          buf += p;
+        } else {
+          if (buf.trim()) chunks.push(buf.trim());
+          buf = p;
+        }
+      }
+      if (buf.trim()) chunks.push(buf.trim());
+    }
+
+    const urls: string[] = [];
+    for (const chunk of chunks) {
+      try {
+        const res = await fetch('https://api.soundoftext.com/sounds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ engine: 'Google', data: { text: chunk, voice: 'ta' } })
+        });
+        const data = await res.json();
+        if (data.success && data.id) {
+          urls.push(`https://files.soundoftext.com/${data.id}.mp3`);
+        }
+      } catch (err) {
+        console.warn('SoundOfText chunk error:', err);
+      }
+    }
+
+    return urls;
+  }
+
+  private async prefetchNextItems(nextIndex: number) {
+    for (let i = nextIndex; i < Math.min(nextIndex + 2, this.queue.length); i++) {
+      const item = this.queue[i];
+      if (item && !this.mp3UrlCache.has(item.id)) {
+        const speechText = this.formatFullSpeechText(item.id, item.text, item.reference);
+        this.getAudioUrlsForVerse(item.id, speechText).catch(() => {});
+      }
+    }
+  }
+
+  private playMp3UrlsForQueueItem(
     itemId: number,
     originalText: string,
-    chunks: string[],
-    chunkIndex: number,
-    isDirect: boolean
-  ): void {
+    urls: string[],
+    urlIndex: number
+  ) {
     if (!this.isPlaying || this.isPaused) return;
 
-    if (chunkIndex >= chunks.length) {
-      // Finished all chunks for this verse
+    if (urlIndex >= urls.length) {
+      // Verse complete
       this.onItemEnd?.(itemId);
       this.currentItemIndex++;
 
       if (this.settings.continuousPlay && this.currentItemIndex < this.queue.length) {
-        // Synchronous continuation keeps iOS Safari media privilege alive
+        // Synchronous transition for iOS Safari
         this.playCurrentQueueItem();
       } else {
         this.isPlaying = false;
@@ -357,20 +432,13 @@ export class GaplessTamilAudioEngine {
       return;
     }
 
-    const chunkText = chunks[chunkIndex];
-    let audioUrl = '';
-
-    if (isDirect) {
-      audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ta&client=tw-ob&q=${encodeURIComponent(chunkText)}`;
-    } else {
-      audioUrl = `/api/tts?q=${encodeURIComponent(chunkText)}`;
-    }
-
+    const currentUrl = urls[urlIndex];
     const audio = this.getOrCreateHtmlAudio();
+
     audio.onended = null;
     audio.onerror = null;
 
-    if (chunkIndex === 0) {
+    if (urlIndex === 0) {
       this.onItemStart?.(itemId, originalText);
       this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
       this.setupMediaSession(itemId, originalText);
@@ -378,36 +446,38 @@ export class GaplessTamilAudioEngine {
 
     audio.onended = () => {
       if (!this.isPlaying || this.isPaused) return;
-      this.playChunksForQueueItem(itemId, originalText, chunks, chunkIndex + 1, isDirect);
+      this.playMp3UrlsForQueueItem(itemId, originalText, urls, urlIndex + 1);
     };
 
     audio.onerror = (err) => {
-      console.warn(`Audio play error on verse #${itemId} (chunk ${chunkIndex}, direct=${isDirect}):`, err);
+      console.warn(`Audio playback error for verse #${itemId} urlIndex ${urlIndex}:`, err);
 
-      if (!isDirect) {
-        // On static hosting (e.g. GitHub Pages), /api/tts fails with 404.
-        // Switch to direct Google TTS URL and retry this item!
-        this.useDirectGoogleTts = true;
-        console.log('Backend /api/tts unavailable. Switched to Direct Google TTS for static deploy.');
+      if (currentUrl.startsWith('/api/')) {
+        // Local backend proxy returned error/404 on static deploy
+        this.isBackendTtsAvailable = false;
         this.playCurrentQueueItem();
         return;
       }
 
-      // If direct Google TTS failed, fallback to Web Speech API
-      this.speakWithWebSpeech(itemId, chunks.join(' '));
+      // If MP3 load failed, fallback to WebSpeech
+      const current = this.queue[this.currentItemIndex];
+      const speechText = this.formatFullSpeechText(current.id, current.text, current.reference);
+      this.speakWithWebSpeech(itemId, speechText);
     };
 
-    audio.src = audioUrl;
+    audio.src = currentUrl;
     audio.playbackRate = this.settings.speed;
     audio.volume = this.settings.volume;
 
     audio.play().catch(err => {
       console.warn('HTML5 Audio play rejected on iOS:', err);
-      if (!isDirect) {
-        this.useDirectGoogleTts = true;
+      if (currentUrl.startsWith('/api/')) {
+        this.isBackendTtsAvailable = false;
         this.playCurrentQueueItem();
       } else {
-        this.speakWithWebSpeech(itemId, chunks.join(' '));
+        const current = this.queue[this.currentItemIndex];
+        const speechText = this.formatFullSpeechText(current.id, current.text, current.reference);
+        this.speakWithWebSpeech(itemId, speechText);
       }
     });
   }
@@ -431,11 +501,29 @@ export class GaplessTamilAudioEngine {
       utterance.voice = tamilVoices[0];
     }
 
-    utterance.onend = () => {
+    const handleVerseFinished = () => {
       if (!this.isPlaying || this.isPaused) return;
-      this.onItemEnd?.(itemId);
 
+      const elapsedMs = Date.now() - this.verseStartTime;
+      // ANTI-RAPID-SKIP GUARD FOR IOS SAFARI:
+      // If WebSpeech ended in < 600ms, iOS Safari silently rejected the speech utterance.
+      // Pause 1.5 seconds rather than looping continuously!
+      if (elapsedMs < 600) {
+        console.warn('WebSpeech ended prematurely (<600ms). Adding 1.5s delay before retry.');
+        this.onStatusChange?.('loading', 'குரல் தயாரிக்கிறது...');
+        setTimeout(() => {
+          if (this.isPlaying && !this.isPaused) {
+            this.onItemEnd?.(itemId);
+            this.currentItemIndex++;
+            this.playCurrentQueueItem();
+          }
+        }, 1500);
+        return;
+      }
+
+      this.onItemEnd?.(itemId);
       this.currentItemIndex++;
+
       if (this.settings.continuousPlay && this.currentItemIndex < this.queue.length) {
         this.playCurrentQueueItem();
       } else {
@@ -444,14 +532,8 @@ export class GaplessTamilAudioEngine {
       }
     };
 
-    utterance.onerror = () => {
-      if (!this.isPlaying || this.isPaused) return;
-      this.onItemEnd?.(itemId);
-      this.currentItemIndex++;
-      if (this.settings.continuousPlay && this.currentItemIndex < this.queue.length) {
-        this.playCurrentQueueItem();
-      }
-    };
+    utterance.onend = handleVerseFinished;
+    utterance.onerror = handleVerseFinished;
 
     this.onItemStart?.(itemId, text);
     this.onStatusChange?.('playing', `உலாவி குரல்: #${itemId}`);
