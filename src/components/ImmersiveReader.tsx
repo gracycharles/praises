@@ -40,29 +40,29 @@ export const ImmersiveReader: React.FC<ImmersiveReaderProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Reading Controls Bar */}
-      <div className="bg-[#1a1411]/90 border border-amber-900/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 backdrop-blur-md shadow-xl">
+      {/* Reading Controls Bar in Soft Pastel Theme */}
+      <div className="bg-white border border-amber-100 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm">
         
         {/* Page Selector */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             disabled={currentPageNum <= 1}
             onClick={() => setCurrentPageNum(prev => Math.max(1, prev - 1))}
-            className="p-2 rounded-xl bg-[#241c18] hover:bg-[#322722] border border-amber-900/30 disabled:opacity-30 transition-all text-amber-300"
+            className="p-2 rounded-xl bg-[#faf8f5] hover:bg-amber-50 border border-amber-200/40 disabled:opacity-30 transition-all text-amber-950"
             title="முந்தைய பக்கம்"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-2 font-serif">
-            <span className="text-xs text-amber-300/80">பக்கம்:</span>
+            <span className="text-xs text-[#6e5d53] font-bold">பக்கம்:</span>
             <select
               value={currentPageNum}
               onChange={(e) => setCurrentPageNum(Number(e.target.value))}
-              className="bg-[#120e0c] border border-amber-900/40 rounded-xl px-3 py-1.5 text-xs text-amber-100 font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+              className="bg-[#faf8f5] border border-amber-200/40 rounded-xl px-3 py-1.5 text-xs text-stone-900 font-bold focus:outline-none cursor-pointer"
             >
               {pages.map(p => (
-                <option key={p.page} value={p.page} className="bg-[#120e0c] text-amber-100">
+                <option key={p.page} value={p.page} className="bg-white text-stone-900">
                   {p.page} ({p.praises[0]?.id || ''} - {p.praises[p.praises.length - 1]?.id || ''})
                 </option>
               ))}
@@ -72,7 +72,7 @@ export const ImmersiveReader: React.FC<ImmersiveReaderProps> = ({
           <button
             disabled={currentPageNum >= Math.max(...pages.map(p => p.page))}
             onClick={() => setCurrentPageNum(prev => prev + 1)}
-            className="p-2 rounded-xl bg-[#241c18] hover:bg-[#322722] border border-amber-900/30 disabled:opacity-30 transition-all text-amber-300"
+            className="p-2 rounded-xl bg-[#faf8f5] hover:bg-amber-50 border border-amber-200/40 disabled:opacity-30 transition-all text-amber-950"
             title="அடுத்த பக்கம்"
           >
             <ChevronRight className="w-5 h-5" />
@@ -80,84 +80,96 @@ export const ImmersiveReader: React.FC<ImmersiveReaderProps> = ({
 
           <button
             onClick={handlePlayEntirePage}
-            className="ml-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-stone-950 font-serif font-bold rounded-xl text-xs flex items-center gap-2 shadow-md shadow-amber-950/50 transition-all border border-amber-400/30"
+            className="px-4 py-2 bg-amber-950 hover:bg-amber-900 text-white font-serif font-bold rounded-xl text-xs flex items-center gap-2 border border-amber-800 shadow-sm transition-all"
           >
-            <Play className="w-4 h-4 fill-stone-950" />
+            <Play className="w-3.5 h-3.5 fill-white text-white" />
             <span>முழுப் பக்கமும் வாசிக்க</span>
           </button>
         </div>
 
         {/* Font Size Adjuster */}
-        <div className="flex items-center gap-3 bg-[#120e0c] px-3.5 py-1.5 rounded-xl border border-amber-900/30">
-          <Type className="w-4 h-4 text-amber-400" />
-          <span className="text-amber-300 font-mono text-xs">{fontSize}px</span>
+        <div className="flex items-center gap-3 bg-[#faf8f5] px-3.5 py-1.5 rounded-xl border border-amber-200/30">
+          <Type className="w-4 h-4 text-amber-700" />
+          <span className="text-amber-950 font-mono text-xs font-bold">{fontSize}px</span>
           <input
             type="range"
             min="15"
             max="28"
             value={fontSize}
             onChange={(e) => setFontSize(Number(e.target.value))}
-            className="w-24 accent-amber-500 bg-[#3b2417] h-1.5 rounded-lg cursor-pointer"
+            className="w-24 accent-amber-600 bg-amber-200 h-1 rounded-lg cursor-pointer"
           />
         </div>
 
       </div>
 
       {/* Book Manuscript Sheet */}
-      <div className="p-6 md:p-12 rounded-3xl bg-gradient-to-b from-[#1e1713] via-[#1a1411] to-[#140f0c] border border-amber-900/40 shadow-2xl transition-all text-amber-50 font-serif">
+      <div className="p-5 md:p-12 rounded-3xl bg-white border border-amber-100 shadow-sm transition-all text-[#261e19] font-serif">
         
         {/* Manuscript Header */}
-        <div className="text-center space-y-2.5 pb-8 border-b border-amber-900/30">
-          <h2 className="text-2xl md:text-3xl font-serif font-bold text-amber-100 tracking-wide">
+        <div className="text-center space-y-2 pb-6 border-b-2 border-amber-950/20">
+          <h2 className="text-xl md:text-2xl font-serif font-extrabold text-amber-950 tracking-wide">
             {currentPage?.title}
           </h2>
         </div>
 
         {/* Verses Container */}
-        <div className="mt-8 space-y-6">
+        <div className="mt-6 space-y-4">
           {pagePraises.map((item) => {
             const isBookmarked = bookmarks.includes(item.id);
             return (
               <div
                 key={item.id}
-                className="group p-4 md:p-5 rounded-2xl hover:bg-amber-500/5 transition-all border border-transparent hover:border-amber-900/30 flex items-start justify-between gap-4"
+                className="group p-4 rounded-2xl hover:bg-amber-50/10 transition-all border border-transparent hover:border-amber-100 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4"
               >
-                <div className="space-y-2 flex-1">
+                <div className="space-y-2 flex-1 min-w-0">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs font-bold text-amber-300 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                    <span className="font-mono text-[10px] font-bold text-amber-100 bg-amber-950 px-2 py-0.5 rounded-lg border border-amber-900 shadow-sm">
                       #{item.id}
                     </span>
-                    {item.reference && (
-                      <span className="text-amber-200/60 text-xs font-mono tracking-widest uppercase">
-                        📖 {item.reference}
-                      </span>
-                    )}
                   </div>
 
                   <p
                     style={{ fontSize: `${fontSize}px`, lineHeight }}
-                    className="font-serif leading-relaxed tracking-wide font-medium text-amber-50"
+                    className="font-serif leading-relaxed tracking-wide font-medium text-[#261e19]"
                   >
                     {item.text}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity shrink-0 mt-1">
-                  <button
-                    onClick={() => onToggleBookmark(item.id)}
-                    title="சேமி"
-                    className={`p-2.5 rounded-xl transition-all ${isBookmarked ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30' : 'text-stone-400 hover:text-amber-300 hover:bg-[#28201a]'}`}
-                  >
-                    {isBookmarked ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
-                  </button>
+                {/* Sub-container containing Scripture references & compact control buttons */}
+                <div className="flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t border-dashed border-amber-200/30 sm:border-0 shrink-0">
+                  <div className="flex items-center">
+                    {item.reference ? (
+                      <span className="text-amber-800 text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase">
+                        📖 {item.reference}
+                      </span>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
 
-                  <button
-                    onClick={() => handlePlayItem(item)}
-                    title="ஒலி வடிவில் கேட்க"
-                    className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/30 text-amber-300 transition-all border border-amber-500/20"
-                  >
-                    <Play className="w-5 h-5 fill-amber-300" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => onToggleBookmark(item.id)}
+                      title="சேமி"
+                      className={`p-2 rounded-xl transition-all border ${
+                        isBookmarked 
+                          ? 'text-amber-950 bg-amber-100/70 border-amber-200 shadow-sm' 
+                          : 'text-stone-400 hover:text-amber-800 hover:bg-amber-50/40 border-transparent'
+                      }`}
+                    >
+                      {isBookmarked ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
+                    </button>
+
+                    <button
+                      onClick={() => handlePlayItem(item)}
+                      title="கேட்க"
+                      className="p-2 rounded-xl bg-amber-50 hover:bg-amber-950 hover:text-white text-amber-900 border border-amber-200/60 transition-all"
+                    >
+                      <Play className="w-4.5 h-4.5 fill-current" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -165,7 +177,7 @@ export const ImmersiveReader: React.FC<ImmersiveReaderProps> = ({
         </div>
 
         {/* Footer Navigation */}
-        <div className="mt-12 pt-6 border-t border-amber-900/30 flex items-center justify-between text-xs text-amber-300/60 font-serif">
+        <div className="mt-10 pt-4 border-t border-amber-100 flex items-center justify-between text-[11px] text-[#6e5d53] font-serif font-bold">
           <span>அகர வரிசையில் நன்றி பலிகள் 1000</span>
           <span>பக்கம் {currentPageNum}</span>
         </div>

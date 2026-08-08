@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PraiseItem } from '../types';
 import { globalAudioEngine } from '../utils/audioEngine';
-import { Play, Bookmark, BookmarkCheck, Heart, Sun, Moon, Flame, Sparkles, Trash2, Zap } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, Heart, Sun, Moon, Sparkles, Trash2, Zap } from 'lucide-react';
 
 interface PlaylistsViewProps {
   praises: PraiseItem[];
@@ -47,105 +47,129 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Playlist Selector Cards */}
+      {/* Playlist Selector Cards in Premium Dark Contrast Theme */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         
         {/* Bookmarks */}
         <button
           onClick={() => setSelectedPlaylist('bookmarks')}
-          className={`p-4 rounded-2xl border transition-all text-left space-y-2 relative overflow-hidden ${
+          className={`p-4 rounded-2xl border transition-all text-left space-y-2.5 relative overflow-hidden ${
             selectedPlaylist === 'bookmarks'
-              ? 'bg-gradient-to-br from-amber-600/30 via-[#1e1713] to-[#120e0c] border-amber-500 shadow-xl ring-1 ring-amber-500/50'
-              : 'bg-[#1a1411]/60 border-amber-900/30 hover:border-amber-900/60 hover:bg-[#201814]'
+              ? 'bg-amber-950 text-white border-amber-900 shadow-md font-bold'
+              : 'bg-white border-amber-100 text-stone-700 hover:bg-amber-50/50 hover:border-amber-200'
           }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300">
-            <Heart className="w-5 h-5 fill-amber-500/20" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            selectedPlaylist === 'bookmarks' ? 'bg-amber-900 text-amber-100 border border-amber-800' : 'bg-amber-50 text-amber-600 border border-amber-200/40'
+          }`}>
+            <Heart className="w-4 h-4 fill-current" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-amber-100 font-serif">விருப்பமானவை</h3>
-            <p className="text-[11px] text-amber-200/60 font-serif">{bookmarks.length} ஸ்தோத்திரங்கள்</p>
+            <h3 className={`text-xs font-bold font-serif ${selectedPlaylist === 'bookmarks' ? 'text-white' : 'text-amber-950'}`}>
+              விருப்பமானவை
+            </h3>
+            <p className={`text-[11px] font-serif font-semibold ${selectedPlaylist === 'bookmarks' ? 'text-amber-200/70' : 'text-[#6e5d53]'}`}>
+              {bookmarks.length} ஸ்தோத்திரங்கள்
+            </p>
           </div>
         </button>
 
         {/* Morning Praises */}
         <button
           onClick={() => setSelectedPlaylist('morning')}
-          className={`p-4 rounded-2xl border transition-all text-left space-y-2 relative overflow-hidden ${
+          className={`p-4 rounded-2xl border transition-all text-left space-y-2.5 relative overflow-hidden ${
             selectedPlaylist === 'morning'
-              ? 'bg-gradient-to-br from-amber-600/30 via-[#1e1713] to-[#120e0c] border-amber-500 shadow-xl ring-1 ring-amber-500/50'
-              : 'bg-[#1a1411]/60 border-amber-900/30 hover:border-amber-900/60 hover:bg-[#201814]'
+              ? 'bg-amber-950 text-white border-amber-900 shadow-md font-bold'
+              : 'bg-white border-amber-100 text-stone-700 hover:bg-amber-50/50 hover:border-amber-200'
           }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300">
-            <Sun className="w-5 h-5" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            selectedPlaylist === 'morning' ? 'bg-amber-900 text-amber-100 border border-amber-800' : 'bg-amber-50 text-amber-600 border border-amber-200/40'
+          }`}>
+            <Sun className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-amber-100 font-serif">காலை ஜெப ஸ்தோத்திரம்</h3>
-            <p className="text-[11px] text-amber-200/60 font-serif">50 துவக்க துதிகள்</p>
+            <h3 className={`text-xs font-bold font-serif ${selectedPlaylist === 'morning' ? 'text-white' : 'text-amber-950'}`}>
+              காலை ஜெபம்
+            </h3>
+            <p className={`text-[11px] font-serif font-semibold ${selectedPlaylist === 'morning' ? 'text-amber-200/70' : 'text-[#6e5d53]'}`}>
+              50 துவக்க துதிகள்
+            </p>
           </div>
         </button>
 
         {/* Evening Praises */}
         <button
           onClick={() => setSelectedPlaylist('evening')}
-          className={`p-4 rounded-2xl border transition-all text-left space-y-2 relative overflow-hidden ${
+          className={`p-4 rounded-2xl border transition-all text-left space-y-2.5 relative overflow-hidden ${
             selectedPlaylist === 'evening'
-              ? 'bg-gradient-to-br from-amber-600/30 via-[#1e1713] to-[#120e0c] border-amber-500 shadow-xl ring-1 ring-amber-500/50'
-              : 'bg-[#1a1411]/60 border-amber-900/30 hover:border-amber-900/60 hover:bg-[#201814]'
+              ? 'bg-amber-950 text-white border-amber-900 shadow-md font-bold'
+              : 'bg-white border-amber-100 text-stone-700 hover:bg-amber-50/50 hover:border-amber-200'
           }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300">
-            <Moon className="w-5 h-5" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            selectedPlaylist === 'evening' ? 'bg-amber-900 text-amber-100 border border-amber-800' : 'bg-amber-50 text-amber-600 border border-amber-200/40'
+          }`}>
+            <Moon className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-amber-100 font-serif">இரவு அமைதித் துதிகள்</h3>
-            <p className="text-[11px] text-amber-200/60 font-serif">50 அமைதித் துதிகள்</p>
+            <h3 className={`text-xs font-bold font-serif ${selectedPlaylist === 'evening' ? 'text-white' : 'text-amber-950'}`}>
+              இரவு அமைதி
+            </h3>
+            <p className={`text-[11px] font-serif font-semibold ${selectedPlaylist === 'evening' ? 'text-amber-200/70' : 'text-[#6e5d53]'}`}>
+              50 அமைதித் துதிகள்
+            </p>
           </div>
         </button>
 
         {/* Key Highlights */}
         <button
           onClick={() => setSelectedPlaylist('top100')}
-          className={`p-4 rounded-2xl border transition-all text-left space-y-2 relative overflow-hidden ${
+          className={`p-4 rounded-2xl border transition-all text-left space-y-2.5 relative overflow-hidden ${
             selectedPlaylist === 'top100'
-              ? 'bg-gradient-to-br from-amber-600/30 via-[#1e1713] to-[#120e0c] border-amber-500 shadow-xl ring-1 ring-amber-500/50'
-              : 'bg-[#1a1411]/60 border-amber-900/30 hover:border-amber-900/60 hover:bg-[#201814]'
+              ? 'bg-amber-950 text-white border-amber-900 shadow-md font-bold'
+              : 'bg-white border-amber-100 text-stone-700 hover:bg-amber-50/50 hover:border-amber-200'
           }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300">
-            <Zap className="w-5 h-5" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            selectedPlaylist === 'top100' ? 'bg-amber-900 text-amber-100 border border-amber-800' : 'bg-amber-50 text-amber-600 border border-amber-200/40'
+          }`}>
+            <Zap className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-amber-100 font-serif">முக்கிய 100 துதிகள்</h3>
-            <p className="text-[11px] text-amber-200/60 font-serif">100 சிறப்பு ஸ்தோத்திரங்கள்</p>
+            <h3 className={`text-xs font-bold font-serif ${selectedPlaylist === 'top100' ? 'text-white' : 'text-amber-950'}`}>
+              சிறப்புத் துதிகள்
+            </h3>
+            <p className={`text-[11px] font-serif font-semibold ${selectedPlaylist === 'top100' ? 'text-amber-200/70' : 'text-[#6e5d53]'}`}>
+              100 சிறப்புத் துதிகள்
+            </p>
           </div>
         </button>
 
       </div>
 
-      {/* Playlist Details Banner */}
-      <div className="bg-[#1a1411]/80 border border-amber-900/30 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 font-serif">
+      {/* Playlist Details Banner in Pastel styles */}
+      <div className="bg-white border border-amber-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 font-serif">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-1">
-            <Sparkles className="w-4 h-4" />
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-800 mb-1">
+            <Sparkles className="w-4 h-4 text-amber-700" />
             <span>தேர்ந்தெடுக்கப்பட்ட ஸ்தோத்திரத் தொகுப்பு</span>
           </div>
-          <h2 className="text-xl font-bold font-serif text-amber-100">
+          <h2 className="text-base sm:text-lg font-bold font-serif text-amber-950">
             {selectedPlaylist === 'bookmarks' ? 'சேமிக்கப்பட்ட விருப்பத் துதிகள்' :
              selectedPlaylist === 'morning' ? 'காலை வேளை 50 ஸ்தோத்திரங்கள்' :
              selectedPlaylist === 'evening' ? 'இரவு வேளை அமைதித் துதிகள்' : 'முக்கிய 100 ஸ்தோத்திரத் மாலை'}
           </h2>
-          <p className="text-xs text-amber-200/60 font-serif mt-1">
+          <p className="text-xs text-[#6e5d53] font-serif font-medium mt-0.5">
             மொத்தம் {currentList.length} ஸ்தோத்திரங்கள் வாசிக்கத் தயாராக உள்ளன
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           {selectedPlaylist === 'bookmarks' && bookmarks.length > 0 && (
             <button
               onClick={onClearBookmarks}
-              className="px-3.5 py-2 bg-[#28201a] hover:bg-rose-950/40 text-stone-300 hover:text-rose-300 border border-amber-900/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+              className="px-3.5 py-2 bg-[#faf8f5] hover:bg-rose-50 text-stone-600 hover:text-rose-700 border border-amber-200/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shrink-0"
             >
               <Trash2 className="w-4 h-4" />
               <span>அழி</span>
@@ -155,22 +179,22 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({
           {currentList.length > 0 && (
             <button
               onClick={handlePlayQueue}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-stone-950 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-amber-950/50 transition-all border border-amber-400/30"
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-amber-950 hover:bg-amber-900 text-white font-serif font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all border border-amber-800 shadow-sm"
             >
-              <Play className="w-4 h-4 fill-stone-950" />
+              <Play className="w-3.5 h-3.5 fill-white text-white" />
               <span>இப்பட்டியலைத் தொடர்ச்சியாகக் கேட்க</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* List Items */}
+      {/* List Items in responsive layout */}
       <div className="space-y-3">
         {currentList.length === 0 ? (
-          <div className="bg-[#1a1411]/40 border border-amber-900/20 rounded-2xl p-12 text-center text-stone-400 space-y-2 font-serif">
+          <div className="bg-white border border-amber-100 rounded-2xl p-12 text-center text-[#6e5d53] space-y-2 font-serif">
             <Heart className="w-8 h-8 text-amber-500/30 mx-auto" />
             <p>இப்பட்டியலில் ஸ்தோத்திரங்கள் எதுவும் இல்லை.</p>
-            <p className="text-xs text-amber-200/50">
+            <p className="text-xs text-stone-400">
               ஒலிப்புத்தகப் பகுதியில் உள்ள சேமிப்பு சின்னத்தைக் கிளிக் செய்து ஸ்தோத்திரங்களை இங்கு சேமிக்கலாம்.
             </p>
           </div>
@@ -180,41 +204,55 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({
             return (
               <div
                 key={item.id}
-                className="bg-[#1a1411]/80 border border-amber-900/30 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-200 flex items-center justify-between gap-4 group"
+                className="bg-white border border-amber-100 hover:border-amber-200 rounded-2xl p-4 transition-all duration-200 hover:shadow-sm hover:bg-amber-50/10"
               >
-                <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                  <span className="font-mono text-xs font-bold text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20 shrink-0 mt-0.5">
-                    #{item.id}
-                  </span>
-                  <div className="space-y-1 min-w-0 flex-1 font-serif">
-                    <p className="text-base font-medium text-amber-50 group-hover:text-amber-200 transition-colors leading-relaxed">
-                      {item.text}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-amber-200/60">
-                      <span>பக்கம் {item.page}</span>
-                      {item.reference && (
-                        <>
-                          <span className="text-amber-900/50">•</span>
-                          <span className="text-amber-200/80 font-mono tracking-widest uppercase text-[10px]">📖 {item.reference}</span>
-                        </>
-                      )}
+                {/* Responsive vertical stacking on mobile so Tamil text gets full viewport width */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+                  
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold shrink-0 mt-1 bg-[#faf8f5] text-amber-950 border border-amber-200/50">
+                      #{item.id}
+                    </span>
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <p className="text-base font-serif font-medium text-[#261e19] leading-relaxed">
+                        {item.text}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => onToggleBookmark(item.id)}
-                    className={`p-2.5 rounded-xl transition-all ${isBookmarked ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30' : 'text-stone-400 hover:text-amber-300'}`}
-                  >
-                    {isBookmarked ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
-                  </button>
-                  <button
-                    onClick={() => handlePlaySingle(item)}
-                    className="p-2.5 bg-amber-500/10 hover:bg-amber-500/30 text-amber-300 rounded-xl transition-all border border-amber-500/20"
-                  >
-                    <Play className="w-5 h-5 fill-amber-300" />
-                  </button>
+                  {/* Bottom section with scripture and compact controls */}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t border-dashed border-amber-200/30 sm:border-0 shrink-0">
+                    <div className="flex items-center">
+                      {item.reference ? (
+                        <span className="text-amber-800 uppercase tracking-widest font-mono font-bold text-[10px] sm:text-xs">
+                          📖 {item.reference}
+                        </span>
+                      ) : (
+                        <div />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => onToggleBookmark(item.id)}
+                        className={`p-2 rounded-xl transition-all border ${
+                          isBookmarked 
+                            ? 'text-amber-950 bg-amber-100/70 border-amber-200 shadow-sm' 
+                            : 'text-stone-400 hover:text-amber-800 hover:bg-amber-50/40 border-transparent'
+                        }`}
+                      >
+                        {isBookmarked ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
+                      </button>
+
+                      <button
+                        onClick={() => handlePlaySingle(item)}
+                        className="p-2 bg-[#faf8f5] hover:bg-amber-50 text-amber-700 border border-amber-200/60 rounded-xl transition-all flex items-center justify-center"
+                      >
+                        <Play className="w-4.5 h-4.5 fill-amber-700 text-amber-700" />
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             );

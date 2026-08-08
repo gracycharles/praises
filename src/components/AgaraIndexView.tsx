@@ -71,17 +71,17 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
     <div className="space-y-6">
       
       {/* Tamil Agara Varisai Alphabet Ribbon */}
-      <div className="bg-[#1a1411]/90 border border-amber-900/40 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
-        <div className="flex items-center justify-between border-b border-amber-900/30 pb-3">
+      <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-amber-100 pb-3">
           <div className="flex items-center gap-3">
-            <span className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold flex items-center justify-center text-base font-serif">
+            <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/40 font-bold flex items-center justify-center text-sm font-serif">
               அ
             </span>
             <div>
-              <h2 className="text-base md:text-lg font-bold text-amber-100 font-serif">
+              <h2 className="text-sm md:text-base font-bold text-amber-950 font-serif">
                 தமிழ் அகர வரிசை அகராதி
               </h2>
-              <p className="text-xs text-amber-200/60 font-serif">
+              <p className="text-[11px] text-[#6e5d53] font-serif font-medium">
                 எழுத்தைத் தேர்ந்தெடுத்து அந்த எழுத்தில் தொடங்கும் ஸ்தோத்திரங்களை அறியலாம்
               </p>
             </div>
@@ -89,7 +89,7 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
         </div>
 
         {/* Letter Grid */}
-        <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto p-1 scrollbar-none">
+        <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto p-1 scrollbar-thin">
           {AGARA_VARISAI_LETTERS.map(letter => {
             const count = letterCounts.get(letter) || 0;
             const isSelected = selectedLetter === letter;
@@ -100,15 +100,15 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
                 onClick={() => setSelectedLetter(letter)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-serif font-bold transition-all flex items-center gap-1.5 ${
                   isSelected
-                    ? 'bg-gradient-to-r from-amber-500 to-amber-700 text-stone-950 font-extrabold shadow-lg shadow-amber-950/60 scale-105'
+                    ? 'bg-amber-950 text-white border border-amber-900 shadow-md font-bold scale-105'
                     : count > 0
-                    ? 'bg-[#120e0c] text-amber-200 border border-amber-900/30 hover:border-amber-500/40 hover:bg-[#28201a]'
-                    : 'bg-[#120e0c]/40 text-stone-600 border border-amber-900/10 cursor-not-allowed opacity-40'
+                    ? 'bg-[#faf8f5] text-amber-900 border border-amber-200/40 hover:bg-amber-50'
+                    : 'bg-[#faf8f5]/40 text-[#b5a99f] border border-amber-100 cursor-not-allowed opacity-30'
                 }`}
               >
                 <span>{letter}</span>
                 {count > 0 && (
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-stone-950/30 text-stone-950' : 'bg-[#241c18] text-amber-400'}`}>
+                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold ${isSelected ? 'bg-amber-800 text-amber-100' : 'bg-amber-100/60 text-amber-900 border border-amber-200/20'}`}>
                     {count}
                   </span>
                 )}
@@ -119,13 +119,13 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
       </div>
 
       {/* Results Title & Action */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#1a1411]/80 border border-amber-900/30 rounded-2xl p-4 md:p-5 shadow-xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-amber-100 rounded-2xl p-4 md:p-5 shadow-sm">
         <div>
-          <h3 className="text-sm font-bold text-amber-100 font-serif flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-bold text-amber-950 font-serif flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-700" />
             <span>'{selectedLetter}' எழுத்தில் தொடங்கும் ஸ்தோத்திரங்கள் ({filteredList.length})</span>
           </h3>
-          <p className="text-xs text-amber-200/60 font-serif">
+          <p className="text-[11px] text-[#6e5d53] font-serif font-medium">
             அகர வரிசைப்படி அமைக்கப்பட்ட 1000 தமிழ் ஸ்தோத்திர துதிகள்
           </p>
         </div>
@@ -133,9 +133,9 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
         {filteredList.length > 0 && (
           <button
             onClick={handlePlayLetterSeries}
-            className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-stone-950 font-serif font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-950/50 transition-all border border-amber-400/30"
+            className="w-full sm:w-auto px-4 py-2.5 bg-amber-950 hover:bg-amber-900 text-white font-serif font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all border border-amber-800 shadow-sm"
           >
-            <Play className="w-4 h-4 fill-stone-950" />
+            <Play className="w-3.5 h-3.5 fill-white text-white" />
             <span>இப்பகுதியைத் தொடர்ச்சியாகக் கேட்க</span>
           </button>
         )}
@@ -144,7 +144,7 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
       {/* Praises List Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredList.length === 0 ? (
-          <div className="col-span-full bg-[#1a1411]/40 border border-amber-900/20 rounded-2xl p-12 text-center text-stone-400 space-y-2 font-serif">
+          <div className="col-span-full bg-white border border-amber-100 rounded-2xl p-12 text-center text-[#6e5d53] space-y-2 font-serif">
             <BookOpen className="w-8 h-8 text-amber-500/30 mx-auto" />
             <p>தேர்ந்தெடுக்கப்பட்ட எழுத்தில் ஸ்தோத்திரங்கள் காணப்படவில்லை.</p>
           </div>
@@ -154,47 +154,55 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
             return (
               <div
                 key={item.id}
-                className="bg-[#1a1411]/80 border border-amber-900/30 hover:border-amber-500/40 rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between space-y-3 group hover:shadow-xl hover:bg-[#201814]"
+                className="bg-white border border-amber-100 hover:border-amber-200 rounded-2xl p-4 transition-all duration-200 hover:shadow-sm hover:bg-amber-50/10"
               >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-amber-300 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+                  
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold shrink-0 mt-1 bg-[#faf8f5] text-amber-950 border border-amber-200/50">
                       #{item.id}
                     </span>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs font-serif text-amber-200/60">
-                        பக்கம் {item.page}
-                      </span>
-                      {item.reference && (
-                        <span className="text-amber-200/80 text-[10px] uppercase font-mono tracking-widest">
-                          📖 {item.reference}
-                        </span>
-                      )}
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <p className="text-base font-serif font-medium text-[#261e19] leading-relaxed">
+                        {item.text}
+                      </p>
                     </div>
                   </div>
 
-                  <p className="text-base font-serif font-medium text-amber-50 leading-relaxed group-hover:text-amber-200 transition-colors">
-                    {item.text}
-                  </p>
-                </div>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t border-dashed border-amber-200/30 sm:border-0 shrink-0">
+                    <div className="flex items-center">
+                      {item.reference ? (
+                        <span className="text-amber-800 uppercase tracking-widest font-mono font-bold text-[10px] sm:text-xs">
+                          📖 {item.reference}
+                        </span>
+                      ) : (
+                        <div />
+                      )}
+                    </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-900/20">
-                  <button
-                    onClick={() => onToggleBookmark(item.id)}
-                    title="சேமி"
-                    className={`p-2 rounded-xl transition-all ${isBookmarked ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30' : 'text-stone-400 hover:text-amber-300 hover:bg-[#28201a]'}`}
-                  >
-                    {isBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-                  </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => onToggleBookmark(item.id)}
+                        title="சேமி"
+                        className={`p-2 rounded-xl transition-all border ${
+                          isBookmarked 
+                            ? 'text-amber-950 bg-amber-100/70 border-amber-200 shadow-sm' 
+                            : 'text-stone-400 hover:text-amber-800 hover:bg-amber-50/40 border-transparent'
+                        }`}
+                      >
+                        {isBookmarked ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
+                      </button>
 
-                  <button
-                    onClick={() => handlePlaySingle(item)}
-                    title="வாசிக்க"
-                    className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/30 text-amber-300 transition-all border border-amber-500/20 flex items-center gap-1.5 text-xs font-serif"
-                  >
-                    <Play className="w-4 h-4 fill-amber-300" />
-                    <span>கேட்க</span>
-                  </button>
+                      <button
+                        onClick={() => handlePlaySingle(item)}
+                        title="கேட்க"
+                        className="p-2 rounded-xl bg-[#faf8f5] hover:bg-amber-50 text-amber-700 border border-amber-200/60"
+                      >
+                        <Play className="w-4.5 h-4.5 fill-amber-700 text-amber-700" />
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             );

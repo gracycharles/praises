@@ -18,95 +18,101 @@ export const Header: React.FC<HeaderProps> = ({
   isPlaying 
 }) => {
   return (
-    <header className="bg-[#181310]/95 backdrop-blur-md border-b border-amber-900/40 text-amber-100 sticky top-0 z-50 shadow-xl">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+    <header className="bg-amber-950 border-b border-amber-900 text-amber-100/90 sticky top-0 z-50 shadow-md w-full overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
         
         {/* Brand & Title */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-600 via-amber-500 to-amber-700 p-0.5 flex items-center justify-center shadow-md shadow-amber-950/50">
-            <div className="w-full h-full bg-[#1c1714] rounded-[10px] flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-amber-400" />
+        <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-900/60 border border-amber-800 p-0.5 flex items-center justify-center shadow-sm shrink-0">
+              <BookOpen className="w-4 h-4 text-amber-300" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-sm sm:text-base font-bold text-white font-serif tracking-tight leading-tight">
+                அகர வரிசையில் நன்றி பலிகள்
+              </h1>
+              <span className="text-[10px] text-amber-300/80 font-medium font-serif leading-none mt-0.5">
+                1000 தமிழ் ஸ்தோத்திரங்கள்
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg font-bold text-amber-100 font-serif tracking-tight truncate max-w-[200px] sm:max-w-none">
-              அகர வரிசையில் நன்றி பலிகள்
-            </h1>
-            <span className="hidden sm:inline-block bg-amber-500/10 text-amber-300 text-[10px] px-2.5 py-0.5 rounded-full border border-amber-500/20 font-mono">
-              {totalPraises}
-            </span>
-          </div>
+
+          <span className="md:hidden bg-amber-900 text-amber-100 text-[10px] px-2 py-0.5 rounded-full border border-amber-800 font-mono font-bold shrink-0">
+            {totalPraises}
+          </span>
         </div>
 
-        {/* Compact Icon-Based Navigation */}
-        <nav className="flex items-center gap-1 sm:gap-1.5">
+        {/* Compact, Scrollable Tab Navigation on Mobile (no overflow) */}
+        <nav className="flex items-center gap-1.5 overflow-x-auto scrollbar-none w-full md:w-auto -mx-4 px-4 md:mx-0 md:px-0 py-1 shrink-0">
+          
+          {/* Audiobook Button */}
           <button
             onClick={() => setActiveTab('audiobook')}
-            title="ஒலிப்புத்தகம் (Audio Player)"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-serif font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shrink-0 ${
               activeTab === 'audiobook'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-lg shadow-amber-600/30'
-                : 'text-stone-300 hover:text-amber-200 hover:bg-[#1c120c]/60'
+                ? 'bg-amber-800 text-white border border-amber-600 shadow-inner'
+                : 'bg-amber-950/40 text-amber-200/70 border border-transparent hover:text-white hover:bg-amber-900/40'
             }`}
           >
-            <Volume2 className="w-4 h-4 shrink-0" />
-            <span className="hidden md:inline">ஒலிப்புத்தகம்</span>
+            <Volume2 className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span>ஒலிப்புத்தகம்</span>
             {isPlaying && (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-450 animate-pulse shrink-0" />
             )}
           </button>
 
+          {/* Reader Button */}
           <button
             onClick={() => setActiveTab('reader')}
-            title="வாசிக்கும் வடிவம் (Immersive Reader)"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-serif font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shrink-0 ${
               activeTab === 'reader'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-lg shadow-amber-600/30'
-                : 'text-stone-300 hover:text-amber-200 hover:bg-[#1c120c]/60'
+                ? 'bg-amber-800 text-white border border-amber-600 shadow-inner'
+                : 'bg-amber-950/40 text-amber-200/70 border border-transparent hover:text-white hover:bg-amber-900/40'
             }`}
           >
-            <BookOpen className="w-4 h-4 shrink-0" />
-            <span className="hidden md:inline">வாசிப்பு</span>
+            <BookOpen className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span>வாசிப்பு</span>
           </button>
 
+          {/* Index Button */}
           <button
             onClick={() => setActiveTab('index')}
-            title="அகர வரிசை அட்டவணை (Alphabetical Index)"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-serif font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shrink-0 ${
               activeTab === 'index'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-lg shadow-amber-600/30'
-                : 'text-stone-300 hover:text-amber-200 hover:bg-[#1c120c]/60'
+                ? 'bg-amber-800 text-white border border-amber-600 shadow-inner'
+                : 'bg-amber-950/40 text-amber-200/70 border border-transparent hover:text-white hover:bg-amber-900/40'
             }`}
           >
-            <Type className="w-4 h-4 shrink-0" />
-            <span className="hidden md:inline">அகராதி</span>
+            <Type className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span>அகராதி</span>
           </button>
 
+          {/* Playlists/Bookmarks Button */}
           <button
             onClick={() => setActiveTab('playlists')}
-            title="சேமித்த விருப்பத் துதிகள் (Saved Praises)"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-serif font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shrink-0 ${
               activeTab === 'playlists'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-lg shadow-amber-600/30'
-                : 'text-stone-300 hover:text-amber-200 hover:bg-[#1c120c]/60'
+                ? 'bg-amber-800 text-white border border-amber-600 shadow-inner'
+                : 'bg-amber-950/40 text-amber-200/70 border border-transparent hover:text-white hover:bg-amber-900/40'
             }`}
           >
-            <Bookmark className="w-4 h-4 shrink-0" />
-            <span className="hidden md:inline">பிடித்தவை</span>
+            <Bookmark className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span>பிடித்தவை</span>
           </button>
 
+          {/* Settings Button */}
           <button
             onClick={() => setActiveTab('settings')}
-            title="அமைப்புகள் (Settings)"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-serif font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs font-serif font-bold transition-all shrink-0 ${
               activeTab === 'settings'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-lg shadow-amber-600/30'
-                : 'text-stone-300 hover:text-amber-200 hover:bg-[#1c120c]/60'
+                ? 'bg-amber-800 text-white border border-amber-600 shadow-inner'
+                : 'bg-amber-950/40 text-amber-200/70 border border-transparent hover:text-white hover:bg-amber-900/40'
             }`}
           >
-            <Settings className="w-4 h-4 shrink-0" />
-            <span className="hidden md:inline">அமைப்புகள்</span>
+            <Settings className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span>அமைப்புகள்</span>
           </button>
+
         </nav>
 
       </div>

@@ -98,6 +98,7 @@ export class GaplessTamilAudioEngine {
   private queue: { id: number; text: string; reference?: string }[] = [];
   private prefetchMap = new Map<number, AudioBuffer>();
   private currentItemIndex = 0;
+  private useDirectGoogleTtsFallback = false;
   private settings: PlayerSettings = {
     voice: 'ta-IN-Wavenet-A',
     speed: 1.0,
@@ -295,7 +296,12 @@ export class GaplessTamilAudioEngine {
         })
       });
 
-      if (!res.ok) return null;
+      if (!res.ok) {
+        if (res.status === 404 || res.status === 500) {
+          this.useDirectGoogleTtsFallback = true;
+        }
+        return null;
+      }
 
       const data = await res.json();
       if (!data.audioContent) return null;
@@ -310,12 +316,22 @@ export class GaplessTamilAudioEngine {
 
       return await ctx.decodeAudioData(bytes.buffer);
     } catch (err) {
-      console.warn('Synthesize decode error:', err);
+      console.warn('Synthesize decode error (using direct fallback):', err);
+      this.useDirectGoogleTtsFallback = true;
       return null;
     }
   }
 
   private playViaHtmlAudio(itemId: number, originalText: string, speechText: string): Promise<void> {
+    const isStaticDeploy = typeof window !== 'undefined' && 
+      (window.location.hostname.endsWith('github.io') || 
+       window.location.hostname.includes('github.preview') || 
+       window.location.hostname.includes('github.dev'));
+
+    if (this.useDirectGoogleTtsFallback || isStaticDeploy) {
+      return this.playDirectGoogleTtsChunks(itemId, originalText, speechText);
+    }
+
     return new Promise((resolve, reject) => {
       this.stopCurrentMedia();
       const audioUrl = `/api/tts?q=${encodeURIComponent(speechText)}`;
@@ -336,14 +352,58 @@ export class GaplessTamilAudioEngine {
 
       audio.onerror = (_e) => {
         this.htmlAudio = null;
-        reject(new Error('HTML5 audio error'));
+        console.warn('Backend TTS /api/tts failed, switching to direct Google TTS fallback.');
+        this.useDirectGoogleTtsFallback = true;
+        this.playDirectGoogleTtsChunks(itemId, originalText, speechText).then(resolve).catch(reject);
       };
 
       audio.play().catch(err => {
         this.htmlAudio = null;
-        reject(err);
+        console.warn('Backend play failed, switching to direct Google TTS fallback:', err);
+        this.useDirectGoogleTtsFallback = true;
+        this.playDirectGoogleTtsChunks(itemId, originalText, speechText).then(resolve).catch(reject);
       });
     });
+  }
+
+  private async playDirectGoogleTtsChunks(itemId: number, originalText: string, speechText: string): Promise<void> {
+    const chunks = speechText.match(/[^.!?\n,;:]+[.!?\n,;:]?/g) || [speechText];
+    const cleanChunks = chunks.map(c => c.trim()).filter(c => c.length > 0);
+
+    this.onItemStart?.(itemId, originalText);
+    this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
+
+    for (let i = 0; i < cleanChunks.length; i++) {
+      if (!this.isPlaying || this.isPaused) break;
+
+      const chunk = cleanChunks[i];
+      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ta&client=tw-ob&q=${encodeURIComponent(chunk.slice(0, 180))}`;
+      
+      await new Promise<void>((resolve, reject) => {
+        this.stopCurrentMedia();
+        const audio = new Audio(audioUrl);
+        this.htmlAudio = audio;
+        audio.playbackRate = this.settings.speed;
+        audio.volume = this.settings.volume;
+
+        audio.onended = () => {
+          this.htmlAudio = null;
+          resolve();
+        };
+
+        audio.onerror = (e) => {
+          this.htmlAudio = null;
+          reject(e);
+        };
+
+        audio.play().catch(err => {
+          this.htmlAudio = null;
+          reject(err);
+        });
+      });
+    }
+
+    this.onItemEnd?.(itemId);
   }
 
   private playAudioBuffer(itemId: number, text: string, buffer: AudioBuffer): Promise<void> {
@@ -353,6 +413,19 @@ export class GaplessTamilAudioEngine {
       this.currentSource = ctx.createBufferSource();
       this.currentSource.buffer = buffer;
       this.currentSource.playbackRate.value = this.settings.speed;
+
+      // Real-time pitch-shifting detune based on the user's selected voice!
+      if (this.currentSource.detune) {
+        if (this.settings.voice === 'ta-IN-Wavenet-B') {
+          this.currentSource.detune.value = -500; // Deeper male voice
+        } else if (this.settings.voice === 'ta-IN-Neural2-A') {
+          this.currentSource.detune.value = 150;  // Brighter, sweeter neural voice
+        } else if (this.settings.voice === 'ta-IN-Standard-A') {
+          this.currentSource.detune.value = -150; // Deeper standard voice
+        } else {
+          this.currentSource.detune.value = 50;   // Default clean female voice
+        }
+      }
 
       this.currentSource.connect(this.gainNode!);
       this.onItemStart?.(itemId, text);
@@ -379,13 +452,36 @@ export class GaplessTamilAudioEngine {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ta-IN';
       utterance.rate = this.settings.speed;
-      utterance.pitch = this.settings.pitch;
       utterance.volume = this.settings.volume;
 
+      // Select voice and pitch based on settings dynamically
       const voices = window.speechSynthesis.getVoices();
-      const tamilVoice = voices.find(v => v.lang.includes('ta') || v.name.toLowerCase().includes('tamil'));
-      if (tamilVoice) {
-        utterance.voice = tamilVoice;
+      const tamilVoices = voices.filter(v => v.lang.includes('ta') || v.name.toLowerCase().includes('tamil'));
+      
+      let selectedVoice = null;
+      if (this.settings.voice.includes('Wavenet-B') || this.settings.voice.includes('male')) {
+        selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('ஆண்') || v.name.toLowerCase().includes('rishi'));
+        utterance.pitch = 0.75; // Low pitch for male voice
+      } else if (this.settings.voice.includes('Neural2-A')) {
+        selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('lekha'));
+        utterance.pitch = 1.2;  // High/sweet pitch for neural voice
+      } else if (this.settings.voice.includes('Standard-A')) {
+        selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('standard') || v.name.toLowerCase().includes('hema'));
+        utterance.pitch = 0.9;  // Slightly lower standard pitch
+      } else {
+        selectedVoice = tamilVoices.find(v => !v.name.toLowerCase().includes('male') && !v.name.toLowerCase().includes('ஆண்'));
+        utterance.pitch = 1.05; // Standard female pitch
+      }
+
+      if (!selectedVoice && tamilVoices.length > 0) {
+        selectedVoice = tamilVoices[0];
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      } else {
+        // Fallback to standard pitch config
+        utterance.pitch = this.settings.voice.includes('Wavenet-B') ? 0.75 : 1.05;
       }
 
       this.onItemStart?.(itemId, text);

@@ -47,7 +47,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#140a05] text-amber-50 font-serif selection:bg-amber-500 selection:text-stone-950 flex flex-col justify-between relative pb-20">
+    <div className="min-h-screen bg-[#faf8f5] text-[#261e19] font-serif selection:bg-amber-200 selection:text-amber-950 flex flex-col justify-between relative pb-20">
       <div>
         {/* Header Bar */}
         <Header 
@@ -57,7 +57,7 @@ export default function App() {
         />
 
         {/* Main Application Canvas */}
-        <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {activeTab === 'audiobook' && (
             <AudiobookPlayer praises={praises} />
           )}
@@ -101,11 +101,11 @@ export default function App() {
       <AudioOverlay praises={praises} />
 
       {/* Footer */}
-      <footer className="border-t border-amber-900/30 bg-[#0f0a07]/95 py-6 text-center text-xs text-stone-400 space-y-1.5 backdrop-blur-md">
-        <p className="font-serif text-amber-200/90 font-medium px-4 text-sm tracking-wide">
+      <footer className="border-t border-amber-200/40 bg-[#f3ede4] py-8 text-center text-xs text-stone-600 space-y-1.5">
+        <p className="font-serif text-amber-900 font-semibold px-4 text-sm tracking-wide">
           {BOOK_METADATA.title} • {BOOK_METADATA.author}
         </p>
-        <p className="text-amber-500/70 text-[11px] font-serif">
+        <p className="text-amber-800/80 text-[11px] font-serif">
           1000 அகர வரிசை நன்றி பலிகள் கொண்ட தமிழ் ஒலிப்புத்தகம்
         </p>
       </footer>
