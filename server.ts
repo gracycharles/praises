@@ -29,21 +29,46 @@ async function startServer() {
         return res.status(400).send('Text parameter is required');
       }
 
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ta&client=tw-ob&q=${encodeURIComponent(text.trim().slice(0, 200))}`;
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        }
-      });
+      // Split long text into natural punctuation chunks (Google TTS limit ~190 chars per chunk)
+      const cleanInput = text.trim();
+      const chunks = cleanInput.match(/[^.!?\n,;:]+[.!?\n,;:]?/g) || [cleanInput];
+      const buffers: Buffer[] = [];
 
-      if (!response.ok) {
-        throw new Error(`Google TTS endpoint responded with status ${response.status}`);
+      for (const chunk of chunks) {
+        const cleanChunk = chunk.trim();
+        if (!cleanChunk) continue;
+
+        // Ensure sub-chunks stay within 180 chars
+        const subChunks = cleanChunk.length > 180 
+          ? cleanChunk.match(/.{1,180}(\s|$)/g) || [cleanChunk]
+          : [cleanChunk];
+
+        for (const sub of subChunks) {
+          const cleanSub = sub.trim();
+          if (!cleanSub) continue;
+
+          const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ta&client=tw-ob&q=${encodeURIComponent(cleanSub)}`;
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            }
+          });
+
+          if (response.ok) {
+            const ab = await response.arrayBuffer();
+            buffers.push(Buffer.from(ab));
+          }
+        }
       }
 
-      const arrayBuffer = await response.arrayBuffer();
+      if (buffers.length === 0) {
+        return res.status(500).send('Speech audio generation failed');
+      }
+
+      const combinedBuffer = Buffer.concat(buffers);
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Cache-Control', 'public, max-age=86400');
-      return res.send(Buffer.from(arrayBuffer));
+      return res.send(combinedBuffer);
     } catch (err: unknown) {
       console.error('TTS endpoint error:', err);
       return res.status(500).send('Speech audio generation failed');

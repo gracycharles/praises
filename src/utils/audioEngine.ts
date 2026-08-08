@@ -101,18 +101,12 @@ export function formatTamilReferenceForSpeech(ref: string): string {
 }
 
 export class GaplessTamilAudioEngine {
-  private audioCtx: AudioContext | null = null;
-  private currentSource: AudioBufferSourceNode | null = null;
   private htmlAudio: HTMLAudioElement | null = null;
-  private gainNode: GainNode | null = null;
-  private keepAliveOsc: OscillatorNode | null = null;
-  private keepAliveGain: GainNode | null = null;
   private isPlaying = false;
   private isPaused = false;
   private queue: { id: number; text: string; reference?: string }[] = [];
-  private prefetchMap = new Map<number, AudioBuffer>();
   private currentItemIndex = 0;
-  private useDirectGoogleTtsFallback = false;
+  private useDirectGoogleTts = false;
   private settings: PlayerSettings = {
     voice: 'ta-IN-Wavenet-A',
     speed: 1.0,
@@ -131,7 +125,6 @@ export class GaplessTamilAudioEngine {
   }>();
 
   constructor() {
-    // Warm up WebSpeech voices if available
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
@@ -140,97 +133,34 @@ export class GaplessTamilAudioEngine {
     }
   }
 
-  private async ensureAudioContextRunning(): Promise<AudioContext> {
-    if (!this.audioCtx) {
-      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.audioCtx = new AudioCtxClass();
-      this.gainNode = this.audioCtx.createGain();
-      this.gainNode.gain.value = this.settings.volume;
-      this.gainNode.connect(this.audioCtx.destination);
+  private getOrCreateHtmlAudio(): HTMLAudioElement {
+    if (!this.htmlAudio && typeof window !== 'undefined') {
+      this.htmlAudio = new Audio();
+      this.htmlAudio.setAttribute('playsinline', 'true');
+      this.htmlAudio.setAttribute('webkit-playsinline', 'true');
     }
-
-    if (this.audioCtx.state === 'suspended') {
-      try {
-        await this.audioCtx.resume();
-      } catch (err) {
-        console.warn('AudioContext resume error:', err);
-      }
-    }
-
-    this.startKeepAlive();
-    return this.audioCtx;
-  }
-
-  private startKeepAlive(): void {
-    if (!this.audioCtx) return;
-    if (this.keepAliveOsc) return; // Already running
-
-    try {
-      this.keepAliveOsc = this.audioCtx.createOscillator();
-      this.keepAliveGain = this.audioCtx.createGain();
-      // Ultra low silent gain so context stays active on iOS Safari without producing audible sound
-      this.keepAliveGain.gain.value = 0.00001;
-      this.keepAliveOsc.connect(this.keepAliveGain);
-      this.keepAliveGain.connect(this.audioCtx.destination);
-      this.keepAliveOsc.start();
-    } catch (e) {
-      console.warn('Keep-alive oscillator start failed:', e);
-    }
-  }
-
-  private stopKeepAlive(): void {
-    if (this.keepAliveOsc) {
-      try {
-        this.keepAliveOsc.stop();
-        this.keepAliveOsc.disconnect();
-      } catch {}
-      this.keepAliveOsc = null;
-    }
-    if (this.keepAliveGain) {
-      try {
-        this.keepAliveGain.disconnect();
-      } catch {}
-      this.keepAliveGain = null;
-    }
+    return this.htmlAudio!;
   }
 
   public unlock(): void {
     try {
-      // 1. Warm up and unlock Web Audio AudioContext
-      this.ensureAudioContextRunning();
-    } catch (err) {
-      console.warn('AudioContext unlock failed:', err);
-    }
-
-    try {
-      // 2. Warm up and unlock HTML5 Audio for iOS
-      if (!this.htmlAudio && typeof window !== 'undefined') {
-        this.htmlAudio = new Audio();
-        this.htmlAudio.setAttribute('playsinline', 'true');
-        this.htmlAudio.setAttribute('webkit-playsinline', 'true');
-      }
-      if (this.htmlAudio) {
-        // Play a silent audio data URL to register user interaction gesture on iOS
-        this.htmlAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-        this.htmlAudio.play().then(() => {
+      const audio = this.getOrCreateHtmlAudio();
+      if (audio.paused && (!audio.src || audio.src === '')) {
+        // Silent WAV data URI to unlock audio on iOS user gesture
+        audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+        audio.play().then(() => {
           console.log('HTML5 Audio successfully unlocked on iOS');
         }).catch(err => {
-          console.log('HTML5 Audio unlock started:', err);
+          console.log('HTML5 Audio unlock attempt:', err);
         });
       }
     } catch (err) {
-      console.warn('HTMLAudio unlock failed:', err);
+      console.warn('HTMLAudio unlock error:', err);
     }
   }
 
   public updateSettings(newSettings: Partial<PlayerSettings>) {
     this.settings = { ...this.settings, ...newSettings };
-    if (this.gainNode) {
-      this.gainNode.gain.value = this.settings.volume;
-    }
-    if (this.currentSource && this.currentSource.playbackRate) {
-      this.currentSource.playbackRate.value = this.settings.speed;
-    }
     if (this.htmlAudio) {
       this.htmlAudio.playbackRate = this.settings.speed;
       this.htmlAudio.volume = this.settings.volume;
@@ -273,7 +203,7 @@ export class GaplessTamilAudioEngine {
 
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: `ஸ்தோத்திரம் #${itemId}`,
+        title: `நன்றி பலி #${itemId}`,
         artist: text.slice(0, 60),
         album: '1000 தமிழ் ஸ்தோத்திர துதிகள்',
       });
@@ -295,51 +225,8 @@ export class GaplessTamilAudioEngine {
     }
   }
 
-  public async playSingleText(itemId: number, rawText: string, ref?: string): Promise<void> {
-    this.stop();
-    await this.ensureAudioContextRunning();
-    this.isPlaying = true;
-    this.isPaused = false;
-    this.onStatusChange?.('loading', `ஸ்தோத்திரம் #${itemId} ஒலி தயாரிப்பு...`);
-
-    const formattedSpeech = this.formatFullSpeechText(itemId, rawText, ref);
-
-    try {
-      if (this.settings.useBrowserFallback) {
-        await this.speakWithWebSpeech(itemId, formattedSpeech);
-      } else {
-        const buffer = await this.synthesizeAndDecode(formattedSpeech);
-        if (buffer) {
-          await this.playAudioBuffer(itemId, rawText, buffer);
-        } else {
-          await this.playViaHtmlAudio(itemId, rawText, formattedSpeech);
-        }
-      }
-    } catch (err) {
-      console.warn('TTS playback failed, trying HTML5 Audio fallback:', err);
-      try {
-        await this.playViaHtmlAudio(itemId, rawText, formattedSpeech);
-      } catch {
-        await this.speakWithWebSpeech(itemId, formattedSpeech);
-      }
-    }
-  }
-
-  public async playQueue(items: { id: number; text: string; reference?: string }[], startIndex = 0): Promise<void> {
-    this.stop();
-    await this.ensureAudioContextRunning();
-    this.queue = items;
-    this.currentItemIndex = startIndex;
-    this.isPlaying = true;
-    this.isPaused = false;
-
-    await this.processNextInQueue();
-  }
-
-  private formatFullSpeechText(id: number, text: string, ref?: string): string {
-    // Clean up text
+  public formatFullSpeechText(id: number, text: string, ref?: string): string {
     let cleanText = text.replace(/^\d+\.\s*/, '').trim();
-    // Extract verse if not explicitly passed
     let referenceText = ref || '';
 
     if (!referenceText) {
@@ -351,9 +238,6 @@ export class GaplessTamilAudioEngine {
     }
 
     const spokenRef = formatTamilReferenceForSpeech(referenceText);
-
-    // Format with explicit Tamil pauses using commas & full stops
-    // e.g. "நன்றி பலி 1. அன்புள்ள தகப்பனே உமக்கு நன்றி. வேத வசன குறிப்பு: சங்கீதம் 100 ஆம் அதிகாரம் 1 ஆம் வசனம்."
     const fullText = `நன்றி பலி ${id}. ${cleanText}. ${spokenRef ? `${spokenRef}.` : ''}`;
     return this.applyPhoneticCorrections(fullText);
   }
@@ -361,7 +245,6 @@ export class GaplessTamilAudioEngine {
   private applyPhoneticCorrections(text: string): string {
     if (!text) return '';
     let result = text;
-    // Phonetic corrections for natural Tamil pronunciation
     result = result.replace(/இயே/g, 'யே');
     result = result.replace(/இரா/g, 'ரா');
     result = result.replace(/இரட்ச/g, 'ரட்ச');
@@ -373,7 +256,6 @@ export class GaplessTamilAudioEngine {
     result = result.replace(/இரண்டா/g, 'ரண்டா');
     result = result.replace(/இரட்டி/g, 'ரட்டி');
     result = result.replace(/இரட்ட/g, 'ரட்ட');
-    result = result.replace(/இரttத்தாலே/g, 'ரத்தத்தாலே');
     result = result.replace(/இரத்த/g, 'ரத்த');
     result = result.replace(/இரகசி/g, 'ரகசி');
     result = result.replace(/இரதம/g, 'ரதம');
@@ -386,408 +268,245 @@ export class GaplessTamilAudioEngine {
     return result;
   }
 
-  private async processNextInQueue(): Promise<void> {
+  public playSingleText(itemId: number, rawText: string, ref?: string): void {
+    const singleQueue = [{ id: itemId, text: rawText, reference: ref }];
+    this.playQueue(singleQueue, 0);
+  }
+
+  public playQueue(items: { id: number; text: string; reference?: string }[], startIndex = 0): void {
+    this.stop();
+    this.unlock();
+    this.queue = items;
+    this.currentItemIndex = startIndex;
+    this.isPlaying = true;
+    this.isPaused = false;
+
+    this.playCurrentQueueItem();
+  }
+
+  private playCurrentQueueItem(): void {
     if (!this.isPlaying || this.currentItemIndex >= this.queue.length) {
       this.isPlaying = false;
-      this.stopKeepAlive();
       this.onStatusChange?.('idle', 'வாசிப்பு நிறைவுற்றது');
       return;
     }
 
     const current = this.queue[this.currentItemIndex];
-    const fullSpeech = this.formatFullSpeechText(current.id, current.text, current.reference);
+    const speechText = this.formatFullSpeechText(current.id, current.text, current.reference);
 
-    this.onStatusChange?.('loading', `தயாராகிறது (${this.currentItemIndex + 1}/${this.queue.length}): #${current.id}...`);
+    if (this.settings.useBrowserFallback) {
+      this.speakWithWebSpeech(current.id, speechText);
+      return;
+    }
 
-    // Prefetch upcoming items
-    this.prefetchAhead(this.currentItemIndex + 1);
+    // Detect if we are hosted on a static server like GitHub Pages where /api/tts is not available
+    const isStaticDeploy = typeof window !== 'undefined' && (
+      window.location.hostname.includes('github.io') ||
+      window.location.hostname.includes('github.preview') ||
+      window.location.hostname.includes('github.dev') ||
+      window.location.protocol === 'file:'
+    );
 
-    try {
-      let buffer = this.prefetchMap.get(current.id);
-      this.prefetchMap.delete(current.id); // Clean up used buffer
+    const useDirect = this.useDirectGoogleTts || isStaticDeploy;
 
-      if (!buffer && !this.settings.useBrowserFallback) {
-        buffer = await this.synthesizeAndDecode(fullSpeech);
-      }
-
-      if (buffer) {
-        await this.playAudioBuffer(current.id, current.text, buffer);
-      } else if (!this.settings.useBrowserFallback) {
-        await this.playViaHtmlAudio(current.id, current.text, fullSpeech);
+    let chunks: string[] = [];
+    if (useDirect) {
+      if (speechText.length <= 180) {
+        chunks = [speechText];
       } else {
-        await this.speakWithWebSpeech(current.id, fullSpeech);
-      }
-
-      // Add 300ms natural pause between queue items
-      if (this.isPlaying) {
-        await new Promise(r => setTimeout(r, 300));
-      }
-
-      if (this.isPlaying && this.settings.continuousPlay) {
-        this.currentItemIndex++;
-        await this.processNextInQueue();
-      }
-    } catch (err) {
-      console.warn('Queue playback item failed, attempting next verse:', err);
-      if (this.isPlaying && this.settings.continuousPlay) {
-        this.currentItemIndex++;
-        await this.processNextInQueue();
-      }
-    }
-  }
-
-  private async prefetchAhead(nextIndex: number) {
-    if (this.settings.useBrowserFallback) return;
-    for (let i = nextIndex; i < Math.min(nextIndex + 2, this.queue.length); i++) {
-      const item = this.queue[i];
-      if (item && !this.prefetchMap.has(item.id)) {
-        const fullSpeech = this.formatFullSpeechText(item.id, item.text, item.reference);
-        this.synthesizeAndDecode(fullSpeech).then(buf => {
-          if (buf) this.prefetchMap.set(item.id, buf);
-        }).catch(() => {});
-      }
-    }
-  }
-
-  private async synthesizeAndDecode(text: string): Promise<AudioBuffer | null> {
-    try {
-      const res = await fetch('/api/synthesize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          voice: this.settings.voice,
-          speed: this.settings.speed
-        })
-      });
-
-      if (!res.ok) {
-        if (res.status === 404 || res.status === 500) {
-          this.useDirectGoogleTtsFallback = true;
+        const rawChunks = speechText.match(/[^.!?\n,;:]+[.!?\n,;:]?/g) || [speechText];
+        let currentBlock = '';
+        for (const c of rawChunks) {
+          if ((currentBlock + c).length <= 180) {
+            currentBlock += c;
+          } else {
+            if (currentBlock.trim()) chunks.push(currentBlock.trim());
+            currentBlock = c;
+          }
         }
-        return null;
+        if (currentBlock.trim()) chunks.push(currentBlock.trim());
       }
-
-      const data = await res.json();
-      if (!data.audioContent) return null;
-
-      const ctx = await this.ensureAudioContextRunning();
-      const binaryStr = atob(data.audioContent);
-      const len = binaryStr.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-
-      // Safe decodeAudioData promise with callback fallback for older Safari
-      return await new Promise<AudioBuffer>((resolve, reject) => {
-        const promise = ctx.decodeAudioData(
-          bytes.buffer,
-          (decoded) => resolve(decoded),
-          (err) => reject(err)
-        );
-        if (promise && typeof promise.then === 'function') {
-          promise.then(resolve).catch(reject);
-        }
-      });
-    } catch (err) {
-      console.warn('Synthesize decode error:', err);
-      this.useDirectGoogleTtsFallback = true;
-      return null;
+    } else {
+      chunks = [speechText];
     }
+
+    this.playChunksForQueueItem(current.id, current.text, chunks, 0, useDirect);
   }
 
-  private playViaHtmlAudio(itemId: number, originalText: string, speechText: string): Promise<void> {
-    const isStaticDeploy = typeof window !== 'undefined' && 
-      (window.location.hostname.endsWith('github.io') || 
-       window.location.hostname.includes('github.preview') || 
-       window.location.hostname.includes('github.dev'));
+  private playChunksForQueueItem(
+    itemId: number,
+    originalText: string,
+    chunks: string[],
+    chunkIndex: number,
+    isDirect: boolean
+  ): void {
+    if (!this.isPlaying || this.isPaused) return;
 
-    if (this.useDirectGoogleTtsFallback || isStaticDeploy) {
-      return this.playDirectGoogleTtsChunks(itemId, originalText, speechText);
+    if (chunkIndex >= chunks.length) {
+      // Finished all chunks for this verse
+      this.onItemEnd?.(itemId);
+      this.currentItemIndex++;
+
+      if (this.settings.continuousPlay && this.currentItemIndex < this.queue.length) {
+        // Synchronous continuation keeps iOS Safari media privilege alive
+        this.playCurrentQueueItem();
+      } else {
+        this.isPlaying = false;
+        this.onStatusChange?.('idle', 'தயாராக உள்ளது');
+      }
+      return;
     }
 
-    return new Promise((resolve) => {
-      this.stopCurrentMediaSourceOnly();
-      const audioUrl = `/api/tts?q=${encodeURIComponent(speechText)}`;
-      
-      if (!this.htmlAudio && typeof window !== 'undefined') {
-        this.htmlAudio = new Audio();
-        this.htmlAudio.setAttribute('playsinline', 'true');
-        this.htmlAudio.setAttribute('webkit-playsinline', 'true');
-      }
-      const audio = this.htmlAudio!;
+    const chunkText = chunks[chunkIndex];
+    let audioUrl = '';
 
-      let finished = false;
-      const done = () => {
-        if (finished) return;
-        finished = true;
-        audio.onended = null;
-        audio.onerror = null;
-        this.onItemEnd?.(itemId);
-        resolve();
-      };
+    if (isDirect) {
+      audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ta&client=tw-ob&q=${encodeURIComponent(chunkText)}`;
+    } else {
+      audioUrl = `/api/tts?q=${encodeURIComponent(chunkText)}`;
+    }
 
-      audio.src = audioUrl;
-      audio.playbackRate = this.settings.speed;
-      audio.volume = this.settings.volume;
+    const audio = this.getOrCreateHtmlAudio();
+    audio.onended = null;
+    audio.onerror = null;
 
-      audio.onended = done;
-      audio.onerror = () => {
-        console.warn('Backend TTS /api/tts HTMLAudio error.');
-        done();
-      };
-
+    if (chunkIndex === 0) {
       this.onItemStart?.(itemId, originalText);
       this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
       this.setupMediaSession(itemId, originalText);
-
-      audio.play().then(() => {}).catch(err => {
-        console.warn('Backend HTMLAudio play rejected:', err);
-        done();
-      });
-    });
-  }
-
-  private async playDirectGoogleTtsChunks(itemId: number, originalText: string, speechText: string): Promise<void> {
-    const chunks = speechText.match(/[^.!?\n,;:]+[.!?\n,;:]?/g) || [speechText];
-    const cleanChunks = chunks.map(c => c.trim()).filter(c => c.length > 0);
-
-    this.onItemStart?.(itemId, originalText);
-    this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
-    this.setupMediaSession(itemId, originalText);
-
-    for (let i = 0; i < cleanChunks.length; i++) {
-      if (!this.isPlaying || this.isPaused) break;
-
-      const chunk = cleanChunks[i];
-      const audioUrl = `/api/tts?q=${encodeURIComponent(chunk.slice(0, 180))}`;
-      
-      await new Promise<void>((resolve) => {
-        this.stopCurrentMediaSourceOnly();
-        if (!this.htmlAudio && typeof window !== 'undefined') {
-          this.htmlAudio = new Audio();
-          this.htmlAudio.setAttribute('playsinline', 'true');
-          this.htmlAudio.setAttribute('webkit-playsinline', 'true');
-        }
-        const audio = this.htmlAudio!;
-
-        let finished = false;
-        const done = () => {
-          if (finished) return;
-          finished = true;
-          audio.onended = null;
-          audio.onerror = null;
-          resolve();
-        };
-
-        audio.src = audioUrl;
-        audio.playbackRate = this.settings.speed;
-        audio.volume = this.settings.volume;
-
-        audio.onended = done;
-        audio.onerror = done;
-
-        audio.play().catch(() => done());
-      });
     }
 
-    this.onItemEnd?.(itemId);
-  }
+    audio.onended = () => {
+      if (!this.isPlaying || this.isPaused) return;
+      this.playChunksForQueueItem(itemId, originalText, chunks, chunkIndex + 1, isDirect);
+    };
 
-  private async playAudioBuffer(itemId: number, text: string, buffer: AudioBuffer): Promise<void> {
-    const ctx = await this.ensureAudioContextRunning();
+    audio.onerror = (err) => {
+      console.warn(`Audio play error on verse #${itemId} (chunk ${chunkIndex}, direct=${isDirect}):`, err);
 
-    return new Promise((resolve) => {
-      this.stopCurrentMediaSourceOnly();
-
-      this.currentSource = ctx.createBufferSource();
-      this.currentSource.buffer = buffer;
-      this.currentSource.playbackRate.value = this.settings.speed;
-
-      // Pitch shifting
-      if (this.currentSource.detune) {
-        if (this.settings.voice === 'ta-IN-Wavenet-B') {
-          this.currentSource.detune.value = -500;
-        } else if (this.settings.voice === 'ta-IN-Neural2-A') {
-          this.currentSource.detune.value = 150;
-        } else if (this.settings.voice === 'ta-IN-Standard-A') {
-          this.currentSource.detune.value = -150;
-        } else {
-          this.currentSource.detune.value = 50;
-        }
-      }
-
-      this.currentSource.connect(this.gainNode!);
-      this.onItemStart?.(itemId, text);
-      this.onStatusChange?.('playing', `வாசிக்கிறது: #${itemId}`);
-      this.setupMediaSession(itemId, text);
-
-      let finished = false;
-      const handleEnded = () => {
-        if (finished) return;
-        finished = true;
-        this.onItemEnd?.(itemId);
-        resolve();
-      };
-
-      this.currentSource.onended = handleEnded;
-
-      try {
-        this.currentSource.start();
-      } catch (err) {
-        console.error('AudioBufferSourceNode start failed:', err);
-        handleEnded();
-      }
-    });
-  }
-
-  private speakWithWebSpeech(itemId: number, text: string): Promise<void> {
-    return new Promise((resolve) => {
-      if (!('speechSynthesis' in window)) {
-        this.onStatusChange?.('error', 'உலாவியில் Speech Synthesis வசதி இல்லை.');
-        resolve();
+      if (!isDirect) {
+        // On static hosting (e.g. GitHub Pages), /api/tts fails with 404.
+        // Switch to direct Google TTS URL and retry this item!
+        this.useDirectGoogleTts = true;
+        console.log('Backend /api/tts unavailable. Switched to Direct Google TTS for static deploy.');
+        this.playCurrentQueueItem();
         return;
       }
 
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ta-IN';
-      utterance.rate = this.settings.speed;
-      utterance.volume = this.settings.volume;
+      // If direct Google TTS failed, fallback to Web Speech API
+      this.speakWithWebSpeech(itemId, chunks.join(' '));
+    };
 
-      const voices = window.speechSynthesis.getVoices();
-      const tamilVoices = voices.filter(v => v.lang.includes('ta') || v.name.toLowerCase().includes('tamil'));
-      
-      let selectedVoice = null;
-      if (this.settings.voice.includes('Wavenet-B') || this.settings.voice.includes('male')) {
-        selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('ஆண்') || v.name.toLowerCase().includes('rishi'));
-        utterance.pitch = 0.75;
-      } else if (this.settings.voice.includes('Neural2-A')) {
-        selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('lekha'));
-        utterance.pitch = 1.2;
-      } else if (this.settings.voice.includes('Standard-A')) {
-        selectedVoice = tamilVoices.find(v => v.name.toLowerCase().includes('standard') || v.name.toLowerCase().includes('hema'));
-        utterance.pitch = 0.9;
+    audio.src = audioUrl;
+    audio.playbackRate = this.settings.speed;
+    audio.volume = this.settings.volume;
+
+    audio.play().catch(err => {
+      console.warn('HTML5 Audio play rejected on iOS:', err);
+      if (!isDirect) {
+        this.useDirectGoogleTts = true;
+        this.playCurrentQueueItem();
       } else {
-        selectedVoice = tamilVoices.find(v => !v.name.toLowerCase().includes('male') && !v.name.toLowerCase().includes('ஆண்'));
-        utterance.pitch = 1.05;
+        this.speakWithWebSpeech(itemId, chunks.join(' '));
       }
-
-      if (!selectedVoice && tamilVoices.length > 0) {
-        selectedVoice = tamilVoices[0];
-      }
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      } else {
-        utterance.pitch = this.settings.voice.includes('Wavenet-B') ? 0.75 : 1.05;
-      }
-
-      let finished = false;
-      const done = () => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timeoutId);
-        this.onItemEnd?.(itemId);
-        resolve();
-      };
-
-      // 18s safety fallback timeout so iOS WebSpeech never hangs the queue if onend is silent
-      const timeoutId = setTimeout(done, 18000);
-
-      utterance.onend = done;
-      utterance.onerror = done;
-
-      this.onItemStart?.(itemId, text);
-      this.onStatusChange?.('playing', `உலாவி குரல்: #${itemId}`);
-      this.setupMediaSession(itemId, text);
-
-      window.speechSynthesis.speak(utterance);
     });
   }
 
-  public pause(): void {
-    if (this.audioCtx && this.audioCtx.state === 'running') {
-      this.audioCtx.suspend();
-      this.isPaused = true;
-      this.onStatusChange?.('paused', 'நிறுத்தப்பட்டது');
+  private speakWithWebSpeech(itemId: number, text: string): void {
+    if (!('speechSynthesis' in window)) {
+      this.onStatusChange?.('error', 'உலாவியில் Speech Synthesis வசதி இல்லை.');
+      return;
     }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ta-IN';
+    utterance.rate = this.settings.speed;
+    utterance.volume = this.settings.volume;
+
+    const voices = window.speechSynthesis.getVoices();
+    const tamilVoices = voices.filter(v => v.lang.includes('ta') || v.name.toLowerCase().includes('tamil'));
+    
+    if (tamilVoices.length > 0) {
+      utterance.voice = tamilVoices[0];
+    }
+
+    utterance.onend = () => {
+      if (!this.isPlaying || this.isPaused) return;
+      this.onItemEnd?.(itemId);
+
+      this.currentItemIndex++;
+      if (this.settings.continuousPlay && this.currentItemIndex < this.queue.length) {
+        this.playCurrentQueueItem();
+      } else {
+        this.isPlaying = false;
+        this.onStatusChange?.('idle', 'தயாராக உள்ளது');
+      }
+    };
+
+    utterance.onerror = () => {
+      if (!this.isPlaying || this.isPaused) return;
+      this.onItemEnd?.(itemId);
+      this.currentItemIndex++;
+      if (this.settings.continuousPlay && this.currentItemIndex < this.queue.length) {
+        this.playCurrentQueueItem();
+      }
+    };
+
+    this.onItemStart?.(itemId, text);
+    this.onStatusChange?.('playing', `உலாவி குரல்: #${itemId}`);
+    this.setupMediaSession(itemId, text);
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  public pause(): void {
+    this.isPaused = true;
     if (this.htmlAudio) {
       this.htmlAudio.pause();
-      this.isPaused = true;
-      this.onStatusChange?.('paused', 'நிறுத்தப்பட்டது');
     }
     if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
       window.speechSynthesis.pause();
-      this.isPaused = true;
-      this.onStatusChange?.('paused', 'நிறுத்தப்பட்டது');
     }
+    this.onStatusChange?.('paused', 'நிறுத்தப்பட்டது');
   }
 
   public resume(): void {
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
-      this.isPaused = false;
-      this.onStatusChange?.('playing', 'தொடர்கிறது...');
-    }
+    this.isPaused = false;
     if (this.htmlAudio && this.htmlAudio.paused) {
-      this.htmlAudio.play();
-      this.isPaused = false;
-      this.onStatusChange?.('playing', 'தொடர்கிறது...');
+      this.htmlAudio.play().catch(console.warn);
     }
     if ('speechSynthesis' in window && window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
-      this.isPaused = false;
-      this.onStatusChange?.('playing', 'தொடர்கிறது...');
     }
-  }
-
-  private stopCurrentMediaSourceOnly(): void {
-    if (this.currentSource) {
-      try {
-        this.currentSource.stop();
-        this.currentSource.disconnect();
-      } catch {}
-      this.currentSource = null;
-    }
-    if (this.htmlAudio) {
-      try {
-        this.htmlAudio.pause();
-        this.htmlAudio.onended = null;
-        this.htmlAudio.onerror = null;
-      } catch {}
-    }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-  }
-
-  private stopCurrentMedia(): void {
-    this.stopCurrentMediaSourceOnly();
-    this.stopKeepAlive();
+    this.onStatusChange?.('playing', 'தொடர்கிறது...');
   }
 
   public stop(): void {
     this.isPlaying = false;
     this.isPaused = false;
-    this.stopCurrentMedia();
+    if (this.htmlAudio) {
+      this.htmlAudio.pause();
+      this.htmlAudio.onended = null;
+      this.htmlAudio.onerror = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     this.onStatusChange?.('idle', 'தயாராக உள்ளது');
   }
 
   public next(): void {
     if (this.queue.length > 0 && this.currentItemIndex < this.queue.length - 1) {
-      this.stopCurrentMediaSourceOnly();
       this.currentItemIndex++;
-      this.processNextInQueue();
+      this.playCurrentQueueItem();
     }
   }
 
   public prev(): void {
     if (this.queue.length > 0 && this.currentItemIndex > 0) {
-      this.stopCurrentMediaSourceOnly();
       this.currentItemIndex--;
-      this.processNextInQueue();
+      this.playCurrentQueueItem();
     }
   }
 
