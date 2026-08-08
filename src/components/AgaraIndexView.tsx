@@ -54,11 +54,13 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
   }, [praises, selectedLetter]);
 
   const handlePlaySingle = (item: PraiseItem) => {
+    globalAudioEngine.unlock();
     globalAudioEngine.playSingleText(item.id, item.text, item.reference);
   };
 
   const handlePlayLetterSeries = () => {
     if (!filteredList.length) return;
+    globalAudioEngine.unlock();
     const items = filteredList.map(p => ({
       id: p.id,
       text: p.text,
@@ -154,7 +156,7 @@ export const AgaraIndexView: React.FC<AgaraIndexViewProps> = ({
             return (
               <div
                 key={item.id}
-                className="bg-white border border-amber-100 hover:border-amber-200 rounded-2xl p-4 transition-all duration-200 hover:shadow-sm hover:bg-amber-50/10"
+                className="bg-white border-2 border-amber-200/95 hover:border-amber-400 rounded-2xl p-4 transition-all duration-200 hover:shadow-md hover:bg-amber-50/10 shadow-sm"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                   

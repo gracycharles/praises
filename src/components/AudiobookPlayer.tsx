@@ -68,7 +68,7 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
 
   // Sync callbacks with Audio Engine
   useEffect(() => {
-    globalAudioEngine.setCallbacks({
+    const unsubscribe = globalAudioEngine.subscribe({
       onStatusChange: (newStatus, msg) => {
         setStatus({ type: newStatus, message: msg || '' });
       },
@@ -76,16 +76,20 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
         setActiveItemId(itemId);
         const found = praises.find(p => p.id === itemId);
         if (found) setActiveItem(found);
-
-        if (settings.autoScroll && activeCardRef.current) {
-          activeCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
       },
       onItemEnd: () => {
         // Handled internally by queue processor
       }
     });
-  }, [praises, settings.autoScroll]);
+    return unsubscribe;
+  }, [praises]);
+
+  // Handle auto scroll when activeItemId changes and settings.autoScroll is enabled
+  useEffect(() => {
+    if (settings.autoScroll && activeItemId && activeCardRef.current) {
+      activeCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeItemId, settings.autoScroll]);
 
   // Toggle bookmark
   const toggleBookmark = (id: number) => {
@@ -97,6 +101,7 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
   };
 
   const handlePlaySingle = (item: PraiseItem) => {
+    globalAudioEngine.unlock();
     setActiveItem(item);
     setActiveItemId(item.id);
     globalAudioEngine.playSingleText(item.id, item.text, item.reference);
@@ -104,6 +109,7 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
 
   const handlePlayFilteredList = () => {
     if (filteredPraises.length === 0) return;
+    globalAudioEngine.unlock();
     const items = filteredPraises.map(p => ({
       id: p.id,
       text: p.text,
@@ -113,6 +119,7 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
   };
 
   const handlePauseResume = () => {
+    globalAudioEngine.unlock();
     const { isPlaying, isPaused } = globalAudioEngine.getStatus();
     if (isPaused) {
       globalAudioEngine.resume();
@@ -310,7 +317,6 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
       {/* Main Praise List */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-2 text-[11px] font-serif text-[#6e5d53] font-semibold">
-          <span>ஸ்தோத்திரங்கள்: <strong className="text-amber-950 font-bold">{filteredPraises.length}</strong> / {praises.length}</span>
           <span>அகர வரிசையில் நன்றி பலிகள்</span>
         </div>
 
@@ -335,10 +341,10 @@ export const AudiobookPlayer: React.FC<AudiobookPlayerProps> = ({ praises }) => 
                 <div
                   key={item.id}
                   ref={isActive ? activeCardRef : null}
-                  className={`p-4 rounded-2xl border transition-all duration-200 ${
+                  className={`p-4 rounded-2xl border-2 transition-all duration-200 ${
                     isActive
-                      ? 'bg-[#1c120c] text-white border-amber-600 shadow-md ring-1 ring-amber-500/20'
-                      : 'bg-white text-[#261e19] border-amber-100 hover:border-amber-200 hover:bg-amber-50/10'
+                      ? 'bg-[#1c120c] text-white border-amber-600 shadow-md ring-2 ring-amber-500/30'
+                      : 'bg-white text-[#261e19] border-amber-200/95 hover:border-amber-400 hover:bg-amber-50/10 shadow-sm'
                   }`}
                 >
                   {/* Vertical stack on mobile, horizontal row on desktop. Never squeezes Tamil text! */}

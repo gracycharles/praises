@@ -24,11 +24,13 @@ export const ImmersiveReader: React.FC<ImmersiveReaderProps> = ({
   const pagePraises = currentPage?.praises || [];
 
   const handlePlayItem = (item: PraiseItem) => {
+    globalAudioEngine.unlock();
     globalAudioEngine.playSingleText(item.id, item.text, item.reference);
   };
 
   const handlePlayEntirePage = () => {
     if (!currentPage?.praises?.length) return;
+    globalAudioEngine.unlock();
     const queue = currentPage.praises.map(p => ({
       id: p.id,
       text: p.text,
@@ -120,7 +122,7 @@ export const ImmersiveReader: React.FC<ImmersiveReaderProps> = ({
             return (
               <div
                 key={item.id}
-                className="group p-4 rounded-2xl hover:bg-amber-50/10 transition-all border border-transparent hover:border-amber-100 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4"
+                className="group p-4 rounded-2xl bg-[#faf8f5]/40 hover:bg-amber-50/20 transition-all border-2 border-amber-200/50 hover:border-amber-400 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 shadow-sm"
               >
                 <div className="space-y-2 flex-1 min-w-0">
                   <div className="flex items-center gap-3">

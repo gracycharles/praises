@@ -2,90 +2,102 @@ import { PlayerSettings } from '../types';
 
 export function formatTamilReferenceForSpeech(ref: string): string {
   if (!ref) return '';
-  let speech = ref.trim();
+  
+  // Split by / or ; or , if they represent multiple references
+  const parts = ref.split(/\s*[\/;]\s*/);
+  const formattedParts = parts.map(part => {
+    let speech = part.trim();
+    if (!speech) return '';
 
-  const bookMap: [RegExp, string][] = [
-    [/^கொலோ[\.]?/, 'கொலோசெயர் '],
-    [/^கலா[\.]?/, 'கலாத்தியர் '],
-    [/^எபே[\.]?/, 'எபேசியர் '],
-    [/^பிலி[\.]?/, 'பிலிப்பியர் '],
-    [/^1 கொரி[\.]?/, 'முதலாம் கொரிந்தியர் '],
-    [/^2 கொரி[\.]?/, 'இரண்டாம் கொரிந்தியர் '],
-    [/^1 தெச[\.]?/, 'முதலாம் தெசலோனிக்கேயர் '],
-    [/^2 தெச[\.]?/, 'இரண்டாம் தெசலோனிக்கேயர் '],
-    [/^1 தீமோ[\.]?/, 'முதலாம் தீமோத்தேயு '],
-    [/^2 தீமோ[\.]?/, 'இரண்டாம் தீமோத்தேயு '],
-    [/^தீத்து[\.]?/, 'தீத்து '],
-    [/^பிலேயோன்[\.]?/, 'பிலேயோன் '],
-    [/^1 பேது[\.]?/, 'முதலாம் பேதுரு '],
-    [/^2 பேது[\.]?/, 'இரண்டாம் பேதுரு '],
-    [/^1 யோவா[\.]?/, 'முதலாம் யோவான் '],
-    [/^2 யோவா[\.]?/, 'இரண்டாம் யோவான் '],
-    [/^3 யோவா[\.]?/, 'மூன்றாம் யோவான் '],
-    [/^யோவா[\.]?/, 'யோவான் '],
-    [/^சங்[\.]?/, 'சங்கீதம் '],
-    [/^ஆதி[\.]?/, 'ஆதியாகமம் '],
-    [/^யாத்[\.]?/, 'யாத்திராகமம் '],
-    [/^லேவி[\.]?/, 'லேவியராகமம் '],
-    [/^எண்ணாக[\.]?/, 'எண்ணாகமம் '],
-    [/^உபா[\.]?/, 'உபாகமம் '],
-    [/^யோசு[\.]?/, 'யோசுவா '],
-    [/^நியாயா[\.]?/, 'நியாயாதிபதிகள் '],
-    [/^ரூத்[\.]?/, 'ரூத் '],
-    [/^1 சாமு[\.]?/, 'முதலாம் சாமுவேல் '],
-    [/^2 சாமு[\.]?/, 'இரண்டாம் சாமுவேல் '],
-    [/^1 இராஜா[\.]?/, 'முதலாம் இராஜாக்கள் '],
-    [/^2 இராஜா[\.]?/, 'இரண்டாம் இராஜாக்கள் '],
-    [/^1 நாளா[\.]?/, 'முதலாம் நாளாகமம் '],
-    [/^2 நாளா[\.]?/, 'இரண்டாம் நாளாகமம் '],
-    [/^எஸ்[\.]?/, 'எஸ்ரா '],
-    [/^நெகே[\.]?/, 'நெகேமியா '],
-    [/^எஸ்தர்[\.]?/, 'எஸ்தர் '],
-    [/^யோபு[\.]?/, 'யோபு '],
-    [/^நீதி[\.]?/, 'நீதிமொழிகள் '],
-    [/^பிரச[\.]?/, 'பிரசங்கி '],
-    [/^உன்னத[\.]?/, 'உன்னதப்பாட்டு '],
-    [/^ஏசா[\.]?/, 'ஏசாயா '],
-    [/^எரே[\.]?/, 'எரேமியா '],
-    [/^புலம்பல்[\.]?/, 'புலம்பல் '],
-    [/^எசேக்[\.]?/, 'எசேக்கியேல் '],
-    [/^தானி[\.]?/, 'தானியேல் '],
-    [/^ஓசியா[\.]?/, 'ஓசியா '],
-    [/^யோவேல்[\.]?/, 'யோவேல் '],
-    [/^ஆமோஸ்[\.]?/, 'ஆமோஸ் '],
-    [/^ஒபதியா[\.]?/, 'ஒபதியா '],
-    [/^யோனா[\.]?/, 'யோனா '],
-    [/^மீகா[\.]?/, 'மீகா '],
-    [/^நாகும்[\.]?/, 'நாகும் '],
-    [/^ஆபகூக்[\.]?/, 'ஆபகூக் '],
-    [/^செப்பனியா[\.]?/, 'செப்பனியா '],
-    [/^ஆகாய்[\.]?/, 'ஆகாய் '],
-    [/^சகரியா[\.]?/, 'சகரியா '],
-    [/^மல்கியா[\.]?/, 'மல்கியா '],
-    [/^மத்[\.]?/, 'மத்தேயு '],
-    [/^மாற்[\.]?/, 'மாற்கு '],
-    [/^லூக்[\.]?/, 'லூக்கா '],
-    [/^அப்[\.]?/, 'அப்போஸ்தலர் நடபடிகள் '],
-    [/^ரோம[\.]?/, 'ரோமர் '],
-    [/^எபி[\.]?/, 'எபிரெயர் '],
-    [/^யாக்கோ[\.]?/, 'யாக்கோபு '],
-    [/^வெளி[\.]?/, 'வெளிப்படுத்தல் ']
-  ];
+    const bookMap: [RegExp, string][] = [
+      // New Testament
+      [/^கொலோ(செயர்)?[\.]?/, 'கொலோசெயர் '],
+      [/^கலா(த்தியர்|த்)?[\.]?/, 'கலாத்தியர் '],
+      [/^எபே(சியர்|சி)?[\.]?/, 'எபேசியர் '],
+      [/^பிலி(ப்பியர்|ப்)?[\.]?/, 'பிலிப்பியர் '],
+      [/^1\s*கொரி(ந்தியர்)?[\.]?/, 'முதலாம் கொரிந்தியர் '],
+      [/^2\s*கொரி(ந்தியர்)?[\.]?/, 'இரண்டாம் கொரிந்தியர் '],
+      [/^1\s*தெச(லோனிக்கேயர்)?[\.]?/, 'முதலாம் தெசலோனிக்கேயர் '],
+      [/^2\s*தெச(லோனிக்கேயர்)?[\.]?/, 'இரண்டாம் தெசலோனிக்கேயர் '],
+      [/^1\s*தீமோ(த்தேயு)?[\.]?/, 'முதலாம் தீமோத்தேயு '],
+      [/^2\s*தீமோ(த்தேயு)?[\.]?/, 'இரண்டாம் தீமோத்தேயு '],
+      [/^தீத்து[\.]?/, 'தீத்து '],
+      [/^பிலேயோன்[\.]?/, 'பிலேயோன் '],
+      [/^1\s*பேது(ரு)?[\.]?/, 'முதலாம் பேதுரு '],
+      [/^2\s*பேது(ரு)?[\.]?/, 'இரண்டாம் பேதுரு '],
+      [/^1\s*யோவா(ன்)?[\.]?/, 'முதலாம் யோவான் '],
+      [/^2\s*யோவா(ன்)?[\.]?/, 'இரண்டாம் யோவான் '],
+      [/^3\s*யோவா(ன்)?[\.]?/, 'மூன்றாம் யோவான் '],
+      [/^யோவா(ன்)?[\.]?/, 'யோவான் '],
+      [/^ரோம(ர்)?[\.]?/, 'ரோமர் '],
+      [/^எபி(ரெயர்|ரெ)?[\.]?/, 'எபிரெயர் '],
+      [/^யாக்(கோபு)?[\.]?/, 'யாக்கோபு '],
+      [/^யூதா[\.]?/, 'யூதா '],
+      [/^வெளி(ப்படுத்தல்)?[\.]?/, 'வெளிப்படுத்தல் '],
+      [/^அப்(போஸ்தலர்)?[\.]?/, 'அப்போஸ்தலர் நடபடிகள் '],
+      [/^மத்(தேயு)?[\.]?/, 'மத்தேயு '],
+      [/^மாற்(கு)?[\.]?/, 'மாற்கு '],
+      [/^லூக்(கா)?[\.]?/, 'லூக்கா '],
 
-  for (const [regex, replacement] of bookMap) {
-    if (regex.test(speech)) {
-      speech = speech.replace(regex, replacement);
-      break;
+      // Old Testament
+      [/^சங்(கீதம்)?[\.]?/, 'சங்கீதம் '],
+      [/^ஆதி(யாகமம்)?[\.]?/, 'ஆதியாகமம் '],
+      [/^யாத்(திராகமம்)?[\.]?/, 'யாத்திராகமம் '],
+      [/^லேவி(யராகமம்)?[\.]?/, 'லேவியராகமம் '],
+      [/^எண்(ணாகமம்|ணா|ணாக)?[\.]?/, 'எண்ணாகமம் '],
+      [/^உபா(கமம்)?[\.]?/, 'உபாகமம் '],
+      [/^யோசு(வா)?[\.]?/, 'யோசுவா '],
+      [/^நியா(யா)?[\.]?/, 'நியாயாதிபதிகள் '],
+      [/^ரூத்[\.]?/, 'ரூத் '],
+      [/^1\s*சாமு(வேல்)?[\.]?/, 'முதலாம் சாமுவேல் '],
+      [/^2\s*சாமு(வேல்)?[\.]?/, 'இரண்டாம் சாமுவேல் '],
+      [/^1\s*இரா(ஜாக்கள்|ஜா)?[\.]?/, 'முதலாம் இராஜாக்கள் '],
+      [/^2\s*இரா(ஜாக்கள்|ஜா)?[\.]?/, 'இரண்டாம் இராஜாக்கள் '],
+      [/^1\s*நா(ளாகமம்|ளா)?[\.]?/, 'முதலாம் நாளாகமம் '],
+      [/^2\s*நா(ளாகமம்|ளா)?[\.]?/, 'இரண்டாம் நாளாகமம் '],
+      [/^எஸ்(ரா)?[\.]?/, 'எஸ்ரா '],
+      [/^நெகே(மியா)?[\.]?/, 'நெகேமியா '],
+      [/^எஸ்தர்[\.]?/, 'எஸ்தர் '],
+      [/^யோபு[\.]?/, 'யோபு '],
+      [/^நீதி(மொழிகள்)?[\.]?/, 'நீதிமொழிகள் '],
+      [/^பிரச(ங்கி|ங்)?[\.]?/, 'பிரசங்கி '],
+      [/^உன்னத(ப்பாட்டு)?[\.]?/, 'உன்னதப்பாட்டு '],
+      [/^ஏசா(யா)?[\.]?/, 'ஏசாயா '],
+      [/^எரே(மியா)?[\.]?/, 'எரேமியா '],
+      [/^புலம்பல்[\.]?/, 'புலம்பல் '],
+      [/^எசேக்(கியேல்)?[\.]?/, 'எசேக்கியேல் '],
+      [/^தானி(யேல்)?[\.]?/, 'தானியேல் '],
+      [/^ஓசி(யா)?[\.]?/, 'ஓசியா '],
+      [/^யோவேல்[\.]?/, 'யோவேல் '],
+      [/^ஆமோஸ்[\.]?/, 'ஆமோஸ் '],
+      [/^ஒப(தியா)?[\.]?/, 'ஒபதியா '],
+      [/^யோனா[\.]?/, 'யோனா '],
+      [/^மீகா[\.]?/, 'மீகா '],
+      [/^நாகு(ம்)?[\.]?/, 'நாகும் '],
+      [/^ஆப(கூக்)?[\.]?/, 'ஆபகூக் '],
+      [/^செப்(bபனியா|பனியா)?[\.]?/, 'செப்பனியா '],
+      [/^ஆகா(ய்)?[\.]?/, 'ஆகாய் '],
+      [/^சக(ரியா)?[\.]?/, 'சகரியா '],
+      [/^மல்(கியா)?[\.]?/, 'மல்கியா ']
+    ];
+
+    for (const [regex, replacement] of bookMap) {
+      if (regex.test(speech)) {
+        speech = speech.replace(regex, replacement);
+        break;
+      }
     }
-  }
 
-  // Format "100:1-3" or "100:1"
-  speech = speech.replace(/(\d+):(\d+)-?(\d+)?/, (_match, ch, v1, v2) => {
-    if (v2) return `${ch} ஆம் அதிகாரம் ${v1} முதல் ${v2} ஆம் வசனம்`;
-    return `${ch} ஆம் அதிகாரம் ${v1} ஆம் வசனம்`;
+    // Format "100:1-3" or "100:1"
+    speech = speech.replace(/(\d+):(\d+)-?(\d+)?/, (_match, ch, v1, v2) => {
+      if (v2) return `${ch} ஆம் அதிகாரம் ${v1} முதல் ${v2} ஆம் வசனம்`;
+      return `${ch} ஆம் அதிகாரம் ${v1} ஆம் வசனம்`;
+    });
+
+    return speech;
   });
 
-  return speech;
+  return formattedParts.filter(p => p.length > 0).join(' மற்றும் ');
 }
 
 export class GaplessTamilAudioEngine {
@@ -110,9 +122,11 @@ export class GaplessTamilAudioEngine {
     useBrowserFallback: false,
   };
 
-  private onStatusChange?: (status: 'idle' | 'loading' | 'playing' | 'paused' | 'error', message?: string) => void;
-  private onItemStart?: (itemId: number, text: string) => void;
-  private onItemEnd?: (itemId: number) => void;
+  private listeners = new Set<{
+    onStatusChange?: (status: 'idle' | 'loading' | 'playing' | 'paused' | 'error', message?: string) => void;
+    onItemStart?: (itemId: number, text: string) => void;
+    onItemEnd?: (itemId: number) => void;
+  }>();
 
   constructor() {
     // Warm up WebSpeech voices if available
@@ -133,9 +147,48 @@ export class GaplessTamilAudioEngine {
       this.gainNode.connect(this.audioCtx.destination);
     }
     if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {});
     }
+    // Silent oscillator to guarantee iOS Web Audio context is fully unblocked
+    try {
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      gain.gain.value = 0.001;
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start(0);
+      osc.stop(0.01);
+    } catch {}
     return this.audioCtx;
+  }
+
+  public unlock(): void {
+    try {
+      // 1. Warm up and unlock Web Audio AudioContext
+      this.initAudioContext();
+    } catch (err) {
+      console.warn('AudioContext unlock failed:', err);
+    }
+
+    try {
+      // 2. Warm up and unlock HTML5 Audio
+      if (!this.htmlAudio && typeof window !== 'undefined') {
+        this.htmlAudio = new Audio();
+        this.htmlAudio.setAttribute('playsinline', 'true');
+        this.htmlAudio.setAttribute('webkit-playsinline', 'true');
+      }
+      if (this.htmlAudio) {
+        // Play a silent audio data URL to register user interaction gesture on iOS
+        this.htmlAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+        this.htmlAudio.play().then(() => {
+          console.log('HTML5 Audio successfully unlocked on iOS');
+        }).catch(err => {
+          console.log('HTML5 Audio unlock started (harmless on desktops):', err);
+        });
+      }
+    } catch (err) {
+      console.warn('HTMLAudio unlock failed:', err);
+    }
   }
 
   public updateSettings(newSettings: Partial<PlayerSettings>) {
@@ -152,15 +205,36 @@ export class GaplessTamilAudioEngine {
     }
   }
 
+  public subscribe(callbacks: {
+    onStatusChange?: (status: 'idle' | 'loading' | 'playing' | 'paused' | 'error', message?: string) => void;
+    onItemStart?: (itemId: number, text: string) => void;
+    onItemEnd?: (itemId: number) => void;
+  }) {
+    this.listeners.add(callbacks);
+    return () => {
+      this.listeners.delete(callbacks);
+    };
+  }
+
   public setCallbacks(callbacks: {
     onStatusChange?: (status: 'idle' | 'loading' | 'playing' | 'paused' | 'error', message?: string) => void;
     onItemStart?: (itemId: number, text: string) => void;
     onItemEnd?: (itemId: number) => void;
   }) {
-    this.onStatusChange = callbacks.onStatusChange;
-    this.onItemStart = callbacks.onItemStart;
-    this.onItemEnd = callbacks.onItemEnd;
+    this.listeners.add(callbacks);
   }
+
+  private onStatusChange = (status: 'idle' | 'loading' | 'playing' | 'paused' | 'error', message?: string) => {
+    this.listeners.forEach(l => l.onStatusChange?.(status, message));
+  };
+
+  private onItemStart = (itemId: number, text: string) => {
+    this.listeners.forEach(l => l.onItemStart?.(itemId, text));
+  };
+
+  private onItemEnd = (itemId: number) => {
+    this.listeners.forEach(l => l.onItemEnd?.(itemId));
+  };
 
   public async playSingleText(itemId: number, rawText: string, ref?: string): Promise<void> {
     this.stop();
@@ -220,8 +294,69 @@ export class GaplessTamilAudioEngine {
     const spokenRef = formatTamilReferenceForSpeech(referenceText);
 
     // Format with explicit Tamil pauses using commas & full stops
-    // e.g. "துதி 1. அன்புள்ள தகப்பனே உமக்கு நன்றி. வேத வசன குறிப்பு: சங்கீதம் 100 ஆம் அதிகாரம் 1 ஆம் வசனம்."
-    return `துதி ${id}. ${cleanText}. ${spokenRef ? `${spokenRef}.` : ''}`;
+    // e.g. "நன்றி பலி 1. அன்புள்ள தகப்பனே உமக்கு நன்றி. வேத வசன குறிப்பு: சங்கீதம் 100 ஆம் அதிகாரம் 1 ஆம் வசனம்."
+    const fullText = `நன்றி பலி ${id}. ${cleanText}. ${spokenRef ? `${spokenRef}.` : ''}`;
+    return this.applyPhoneticCorrections(fullText);
+  }
+
+  private applyPhoneticCorrections(text: string): string {
+    if (!text) return '';
+    let result = text;
+    // 1. "இயே" -> "யே" (e.g. "இயேசு" -> "யேசு", "இயேசுவே" -> "யேசுவே", "இயேசுவின்" -> "யேசுவின்")
+    result = result.replace(/இயே/g, 'யே');
+
+    // 2. "இரா" -> "ரா" (e.g. "இராஜா" -> "ராஜா", "இராச்சியம்" -> "ராச்சியம்", "இராகம்" -> "ராகம்")
+    result = result.replace(/இரா/g, 'ரா');
+
+    // 3. "இரட்ச" -> "ரட்ச" (e.g. "இரட்சகர்" -> "ரட்சகர்", "இரட்சிப்பு" -> "ரட்சிப்பு", "இரட்சண்ய" -> "ரட்சண்ய", "இரட்சிக்க" -> "ரட்சிக்க", "இரட்சிப்பை" -> "ரட்சிப்பை")
+    result = result.replace(/இரட்ச/g, 'ரட்ச');
+
+    // 4. "இலட்ச" -> "லட்ச" (e.g. "இலட்சம்" -> "லட்சம்", "இலட்சங்கள்" -> "லட்சங்கள்")
+    result = result.replace(/இலட்ச/g, 'லட்ச');
+
+    // 5. "இலா" -> "லா" (e.g. "இலாபம்" -> "லாபம்")
+    result = result.replace(/இலா/g, 'லா');
+
+    // 6. "இரக்க" -> "ரக்க" (e.g. "இரக்கம்" -> "ரக்கம்", "இரக்கங்கள்" -> "ரக்கங்கள்", "இரக்கமுள்ளவர்" -> "ரக்கமுள்ளவர்", "இரக்கத்தாலும்" -> "ரக்கத்தாலும்")
+    result = result.replace(/இரக்க/g, 'ரக்க');
+
+    // 7. "இரங்கு" -> "ரங்கு" (e.g. "இரங்குகிறார்" -> "ரங்குகிறார்", "இரங்குவீர்" -> "ரங்குவீர்")
+    result = result.replace(/இரங்கு/g, 'ரங்கு');
+
+    // 8. "இரண்டு" -> "ரண்டு" / "இரண்டா" -> "ரண்டா" (e.g. "இரண்டு" -> "ரண்டு", "இரண்டாவது" -> "ரண்டாவது")
+    result = result.replace(/இரண்டு/g, 'ரண்டு');
+    result = result.replace(/இரண்டா/g, 'ரண்டா');
+
+    // 9. "இரட்டி" -> "ரட்டி" / "இரட்ட" -> "ரட்ட" (e.g. "இரட்டிப்பான" -> "ரட்டிப்பான", "இரட்டத்தனையாக" -> "ரட்டத்தனையாக")
+    result = result.replace(/இரட்டி/g, 'ரட்டி');
+    result = result.replace(/இரட்ட/g, 'ரட்ட');
+
+    // 10. "இரத்த" -> "ரத்த" (e.g. "இரத்தம்" -> "ரத்தம்", "இரttத்தாலே" -> "ரத்தத்தாலே")
+    result = result.replace(/இரttத்தாலே/g, 'ரத்தத்தாலே');
+    result = result.replace(/இரத்த/g, 'ரத்த');
+
+    // 11. "இரகசி" -> "ரகசி" (e.g. "இரகசியத்தை" -> "ரகசியத்தை")
+    result = result.replace(/இரகசி/g, 'ரகசி');
+
+    // 12. "இரதம" -> "ரதம" (e.g. "இரதமாக்கி" -> "இரதமாக்கி")
+    result = result.replace(/இரதம/g, 'ரதம');
+
+    // 13. "உரோம" -> "ரோம" (e.g. "உரோமர்" -> "ரோமர்", "உரோமர்கள்" -> "ரோமர்கள்")
+    result = result.replace(/உரோம/g, 'ரோம');
+
+    // 14. "உলোகம்" -> "லோகம்" (e.g. "உலோகங்கள்" -> "லோகங்கள்")
+    result = result.replace(/உলোகம்/g, 'லோகம்');
+
+    // 15. "எருச" -> "யெருச" (e.g. "எருசலேம்" -> "யெருசலேம்", "எருசலேமின்" -> "யெருசலேமின்")
+    result = result.replace(/எருச/g, 'யெருச');
+
+    // 16. "ஐசுவரிய" -> "ஐஸ்வரிய" (e.g. "ஐசுவரியம்" -> "ஐஸ்வரியம்", "ஐசுவரியவானாக" -> "ஐஸ்வரியவானாக")
+    result = result.replace(/ஐசுவரிய/g, 'ஐஸ்வரிய');
+
+    // 17. "ஒமெகா" -> "ஒமேகா" (e.g. "ஒமெகாவுமானவரே" -> "ஒமேகாவுமானவரே")
+    result = result.replace(/ஒமெகா/g, 'ஒமேகா');
+
+    return result;
   }
 
   private async processNextInQueue(): Promise<void> {
@@ -335,9 +470,17 @@ export class GaplessTamilAudioEngine {
     return new Promise((resolve, reject) => {
       this.stopCurrentMedia();
       const audioUrl = `/api/tts?q=${encodeURIComponent(speechText)}`;
-      const audio = new Audio(audioUrl);
-      this.htmlAudio = audio;
+      
+      if (!this.htmlAudio) {
+        this.htmlAudio = new Audio();
+        this.htmlAudio.setAttribute('playsinline', 'true');
+        this.htmlAudio.setAttribute('webkit-playsinline', 'true');
+      }
+      const audio = this.htmlAudio;
+      audio.onended = null;
+      audio.onerror = null;
 
+      audio.src = audioUrl;
       audio.playbackRate = this.settings.speed;
       audio.volume = this.settings.volume;
 
@@ -346,19 +489,16 @@ export class GaplessTamilAudioEngine {
 
       audio.onended = () => {
         this.onItemEnd?.(itemId);
-        this.htmlAudio = null;
         resolve();
       };
 
       audio.onerror = (_e) => {
-        this.htmlAudio = null;
         console.warn('Backend TTS /api/tts failed, switching to direct Google TTS fallback.');
         this.useDirectGoogleTtsFallback = true;
         this.playDirectGoogleTtsChunks(itemId, originalText, speechText).then(resolve).catch(reject);
       };
 
       audio.play().catch(err => {
-        this.htmlAudio = null;
         console.warn('Backend play failed, switching to direct Google TTS fallback:', err);
         this.useDirectGoogleTtsFallback = true;
         this.playDirectGoogleTtsChunks(itemId, originalText, speechText).then(resolve).catch(reject);
@@ -381,23 +521,28 @@ export class GaplessTamilAudioEngine {
       
       await new Promise<void>((resolve, reject) => {
         this.stopCurrentMedia();
-        const audio = new Audio(audioUrl);
-        this.htmlAudio = audio;
+        if (!this.htmlAudio) {
+          this.htmlAudio = new Audio();
+          this.htmlAudio.setAttribute('playsinline', 'true');
+          this.htmlAudio.setAttribute('webkit-playsinline', 'true');
+        }
+        const audio = this.htmlAudio;
+        audio.onended = null;
+        audio.onerror = null;
+
+        audio.src = audioUrl;
         audio.playbackRate = this.settings.speed;
         audio.volume = this.settings.volume;
 
         audio.onended = () => {
-          this.htmlAudio = null;
           resolve();
         };
 
         audio.onerror = (e) => {
-          this.htmlAudio = null;
           reject(e);
         };
 
         audio.play().catch(err => {
-          this.htmlAudio = null;
           reject(err);
         });
       });
@@ -548,9 +693,10 @@ export class GaplessTamilAudioEngine {
     if (this.htmlAudio) {
       try {
         this.htmlAudio.pause();
-        this.htmlAudio.currentTime = 0;
+        // Keep htmlAudio reference intact for iOS user gesture reuse, just clear callbacks & src if needed
+        this.htmlAudio.onended = null;
+        this.htmlAudio.onerror = null;
       } catch {}
-      this.htmlAudio = null;
     }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();

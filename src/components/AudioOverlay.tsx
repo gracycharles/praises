@@ -14,7 +14,7 @@ export const AudioOverlay: React.FC<AudioOverlayProps> = ({ currentPraise, prais
   const [showGoTop, setShowGoTop] = useState(false);
 
   useEffect(() => {
-    globalAudioEngine.setCallbacks({
+    const unsubscribe = globalAudioEngine.subscribe({
       onStatusChange: (s) => setStatus(s),
       onItemStart: (id, text) => setActiveItem({ id, text }),
       onItemEnd: () => {}
@@ -25,7 +25,10 @@ export const AudioOverlay: React.FC<AudioOverlayProps> = ({ currentPraise, prais
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const scrollToTop = () => {
@@ -33,6 +36,7 @@ export const AudioOverlay: React.FC<AudioOverlayProps> = ({ currentPraise, prais
   };
 
   const handleTogglePlayPause = () => {
+    globalAudioEngine.unlock();
     if (status === 'playing') {
       globalAudioEngine.pause();
     } else if (status === 'paused') {
